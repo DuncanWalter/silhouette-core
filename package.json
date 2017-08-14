@@ -1,0 +1,39 @@
+{
+  "name": "silhouette-core",
+  "version": "1.2.1",
+  "description": "Atomic state management inspired by redux, observables, and optics.",
+  "main": "dist/index.bundle.js",
+  "scripts": {
+    "test": "node scripts/webpack.test.js && node dist/test.bundle.js",
+    "test-pretty": "node scripts/webpack.test.js && cd node_modules/.bin && tap --cov ../../dist/test.bundle.js",
+    "dev": "node scripts/webpack.dev.js",
+    "prod": "node scripts/webpack.prod.js"
+  },
+  "keywords": [
+    "state",
+    "silhouette",
+    "observable",
+    "optic",
+    "dynamic"
+  ],
+  "author": "Duncan Walter",
+  "license": "MIT",
+  "devDependencies": {
+    "babel": "^6.23.0",
+    "babel-core": "^6.25.0",
+    "babel-loader": "^7.1.1",
+    "babel-preset-env": "^1.6.0",
+    "babel-preset-es2015": "^6.24.1",
+    "tap": "^10.7.1",
+    "uglifyjs-webpack-plugin": "^1.0.0-beta.2",
+    "webpack": "^3.4.1",
+    "shelljs": "^0.7.8"
+  },
+  "dependencies": {
+    "vitrarius": "^1.0.2"
+  },
+  "repository": "https://github.com/DuncanWalter/silhouette.git",
+  "publishConfig": {
+    "access": "public"
+  }
+}
