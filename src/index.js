@@ -234,7 +234,16 @@ export function create(...plugins){
             namespace.Silhouette.prototype[__root__] = sil;
             return sil;
         },
-        symbols: { __push__, __create__, __reducers__ },
+        symbols: { 
+            __push__, 
+            __create__, 
+            __reducers__, 
+            __path__, 
+            __store__, 
+            __root__,
+            __DEFINE__, 
+            __REMOVE__,
+        },
     }
 
     // use the redux applyMiddleware approach

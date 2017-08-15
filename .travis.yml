@@ -15,8 +15,8 @@ script:
   - npm run prod
 deploy:
   provider: npm
-  email: dwalter@barlingarts.com
-  api_key: NPM_TOKEN
+  email: "dwalter@barlingarts.com"
+  api_key: NPM_AUTH_TOKEN
   skip_cleanup: true
 branches:
   only:
