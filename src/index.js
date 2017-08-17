@@ -211,7 +211,7 @@ function globalReducer(S, state = {}, action){
             return view(remove, { state, sil });
 
         default:
-            path = action[__path__];
+            path = action[__path__] || [];
             let dispatch = compose(...path.map(traverse), contort);
             return view(dispatch, { state, sil, action });
     }

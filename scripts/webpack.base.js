@@ -1,4 +1,4 @@
-// TODO magic with package json to exclude other client templates
+var package = require('./../package.json');
 
 const base = {
     entry: './src/index.js',
@@ -34,6 +34,12 @@ const base = {
             '~': __dirname + './../',
         },
     },
+    externals: Object.keys(package.dependencies).reduce((a, d) => {
+        // adds all runtime dependencies to the exclude list for testing
+        // in a node environment for accurate code coverage reporting.
+        a[d] = d;
+        return a;
+    }),
 };
 
 module.exports = function(ext){
