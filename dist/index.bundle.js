@@ -1,6 +1,6 @@
 (function webpackUniversalModuleDefinition(root, factory) {
     if (typeof exports === "object" && typeof module === "object") module.exports = factory(require("vitrarius")); else if (typeof define === "function" && define.amd) define([ "vitrarius" ], factory); else if (typeof exports === "object") exports["silhouette"] = factory(require("vitrarius")); else root["silhouette"] = factory(root["vitrarius"]);
-})(this, function(__WEBPACK_EXTERNAL_MODULE_1__) {
+})(this, function(__WEBPACK_EXTERNAL_MODULE_0__) {
     return function(modules) {
         var installedModules = {};
         function __webpack_require__(moduleId) {
@@ -40,34 +40,43 @@
             return Object.prototype.hasOwnProperty.call(object, property);
         };
         __webpack_require__.p = "";
-        return __webpack_require__(__webpack_require__.s = 0);
-    }([ function(module, exports, __webpack_require__) {
+        return __webpack_require__(__webpack_require__.s = 2);
+    }([ function(module, exports) {
+        module.exports = __WEBPACK_EXTERNAL_MODULE_0__;
+    }, function(module, exports, __webpack_require__) {
+        "use strict";
+        Object.defineProperty(exports, "__esModule", {
+            value: true
+        });
+        const __DEFINE__ = exports.__DEFINE__ = Symbol("__DEFINE__");
+        const __REMOVE__ = exports.__REMOVE__ = Symbol("__REMOVE__");
+        const __path__ = exports.__path__ = Symbol("path");
+        const __reducers__ = exports.__reducers__ = Symbol("reducers");
+        const __push__ = exports.__push__ = Symbol("push");
+        const __store__ = exports.__store__ = Symbol("store");
+        const __root__ = exports.__root__ = Symbol("root");
+        const __create__ = exports.__create__ = Symbol("create");
+    }, function(module, exports, __webpack_require__) {
         "use strict";
         Object.defineProperty(exports, "__esModule", {
             value: true
         });
         exports.create = create;
-        var _vitrarius = __webpack_require__(1);
-        const __DEFINE__ = Symbol("__DEFINE__");
-        const __REMOVE__ = Symbol("__REMOVE__");
-        const __path__ = Symbol("path");
-        const __reducers__ = Symbol("reducers");
-        const __push__ = Symbol("push");
-        const __store__ = Symbol("store");
-        const __root__ = Symbol("root");
-        const __create__ = Symbol("create");
+        var _vitrarius = __webpack_require__(0);
+        var _symbols = __webpack_require__(1);
+        var _reducer = __webpack_require__(3);
         function diff(pat, trg) {
             if (!(pat instanceof Object || pat instanceof Array)) {
-                return !!trg;
+                return trg !== undefined;
             }
             return Object.keys(pat).reduce((a, k) => a && trg[k] && diff(pat[k], trg[k]), trg !== undefined);
         }
         function defineSilhouette() {
             class Silhouette {
-                [__create__](parent, member) {
+                [_symbols.__create__](parent, member) {
                     let sil = new Silhouette();
-                    sil[__path__] = parent ? [ ...parent[__path__], member ] : [];
-                    sil[__reducers__] = {};
+                    sil[_symbols.__path__] = parent ? [ ...parent[_symbols.__path__], member ] : [];
+                    sil[_symbols.__reducers__] = {};
                     if (parent !== undefined) {
                         parent[member] = sil;
                     }
@@ -75,37 +84,129 @@
                 }
                 define(val, ...path) {
                     if (!(0, _vitrarius.view)((0, _vitrarius.compose)(...path.map(k => (0, _vitrarius.lens)(o => o[k], (o, r) => r)), diff.bind(null, val)), this)) {
-                        this[__store__].dispatch({
-                            type: __DEFINE__,
+                        this[_symbols.__store__].dispatch({
+                            type: _symbols.__DEFINE__,
                             val: val,
-                            path: [ ...this[__path__], ...path ]
+                            path: [ ...this[_symbols.__path__], ...path ]
                         });
                     }
                 }
                 remove(...path) {
-                    this[__store__].dispatch({
-                        type: __REMOVE__,
-                        path: [ ...this[__path__], ...path ]
+                    this[_symbols.__store__].dispatch({
+                        type: _symbols.__REMOVE__,
+                        path: [ ...this[_symbols.__path__], ...path ]
                     });
                 }
                 dispatch(type, payload, locally = false) {
-                    this[__store__].dispatch(Object.assign({
+                    this[_symbols.__store__].dispatch(Object.assign({
                         type: type,
-                        [__path__]: locally ? this[__path__] : []
+                        [_symbols.__path__]: locally ? this[_symbols.__path__] : []
                     }, payload));
                 }
                 extend(type, reducer, compose = false) {
                     if (type instanceof Object) {}
-                    this[__reducers__][type] = reducer;
+                    this[_symbols.__reducers__][type] = reducer;
                 }
-                [__push__]() {}
+                [_symbols.__push__]() {}
             }
             return Silhouette;
         }
+        function create(...plugins) {
+            let Silhouette = defineSilhouette();
+            let namespace = {
+                Silhouette: Silhouette,
+                reducer: _reducer.reducer.bind(Silhouette),
+                createStore(reducer) {
+                    let state = {};
+                    return {
+                        dispatch(action) {
+                            state = reducer(state, action);
+                        }
+                    };
+                },
+                createSil(store) {
+                    let sil = namespace.Silhouette.prototype[_symbols.__create__]();
+                    namespace.Silhouette.prototype[_symbols.__store__] = store;
+                    namespace.Silhouette.prototype[_symbols.__root__] = sil;
+                    namespace.Silhouette.created = true;
+                    return sil;
+                },
+                symbols: {
+                    __push__: _symbols.__push__,
+                    __create__: _symbols.__create__,
+                    __reducers__: _symbols.__reducers__,
+                    __path__: _symbols.__path__,
+                    __store__: _symbols.__store__,
+                    __root__: _symbols.__root__,
+                    __DEFINE__: _symbols.__DEFINE__,
+                    __REMOVE__: _symbols.__REMOVE__
+                }
+            };
+            Object.keys(namespace).filter(key => namespace[key] instanceof Function).forEach(key => {
+                plugins.map(p => p[key]).filter(f => f).reverse().forEach(f => {
+                    namespace[key] = f(namespace[key], namespace);
+                });
+            });
+            let store = namespace.createStore(namespace.reducer);
+            return namespace.createSil(store);
+        }
+    }, function(module, exports, __webpack_require__) {
+        "use strict";
+        Object.defineProperty(exports, "__esModule", {
+            value: true
+        });
+        exports.reducer = reducer;
+        var _vitrarius = __webpack_require__(0);
+        var _symbols = __webpack_require__(1);
+        var _optics = __webpack_require__(4);
+        function reducer(state = {}, action) {
+            if (!this.created) {
+                return state;
+            }
+            let path, payload, val, sil = this.prototype[_symbols.__root__];
+            switch (action.type) {
+              case _symbols.__DEFINE__:
+                ({val: val, path: path} = action);
+                let _define = (0, _vitrarius.compose)(...path.map(_optics.traverse), (0, _optics.repsert)(val));
+                return (0, _vitrarius.view)(_define, {
+                    state: state,
+                    sil: sil
+                });
+
+              case _symbols.__REMOVE__:
+                ({path: path} = action);
+                let eraser = (0, _optics.erase)(path.pop());
+                let remove = (0, _vitrarius.compose)(...path.map(_optics.traverse), eraser);
+                return (0, _vitrarius.view)(remove, {
+                    state: state,
+                    sil: sil
+                });
+
+              default:
+                path = action[_symbols.__path__] || [];
+                let dispatch = (0, _vitrarius.compose)(...path.map(_optics.traverse), _optics.contort);
+                return (0, _vitrarius.view)(dispatch, {
+                    state: state,
+                    sil: sil,
+                    action: action
+                });
+            }
+        }
+    }, function(module, exports, __webpack_require__) {
+        "use strict";
+        Object.defineProperty(exports, "__esModule", {
+            value: true
+        });
+        exports.contort = contort;
+        exports.traverse = traverse;
+        exports.repsert = repsert;
+        exports.erase = erase;
+        var _vitrarius = __webpack_require__(0);
+        var _symbols = __webpack_require__(1);
         function contort({state: state, sil: sil, action: action}) {
             let transitional = state;
-            if (sil[__reducers__][action.type]) {
-                transitional = sil[__reducers__][action.type](state, action);
+            if (sil[_symbols.__reducers__][action.type]) {
+                transitional = sil[_symbols.__reducers__][action.type](state, action);
             }
             if (transitional === undefined) {
                 throw new Error("Reducer returned undefined; are you missing a return statement?");
@@ -113,7 +214,7 @@
             if (transitional !== state) {
                 Object.keys(sil).forEach(key => {
                     if (!transitional.hasOwnProperty(key)) {
-                        sil[key][__push__]({
+                        sil[key][_symbols.__push__]({
                             done: true
                         });
                         delete sil[key];
@@ -121,7 +222,7 @@
                 });
                 Object.keys(transitional).forEach(key => {
                     if (!sil.hasOwnProperty(key)) {
-                        sil[__create__](sil, key);
+                        sil[_symbols.__create__](sil, key);
                     }
                 });
             }
@@ -131,12 +232,12 @@
                 return {
                     state: frag,
                     action: action,
-                    sil: sil[member] || sil[__create__](sil, member)
+                    sil: sil[member] || sil[_symbols.__create__](sil, member)
                 };
             };
             let final = (0, _vitrarius.view)((0, _vitrarius.compose)((0, _vitrarius.each)(), fun, contort), transitional);
             if (final != state) {
-                sil[__push__]({
+                sil[_symbols.__push__]({
                     done: false,
                     value: final
                 });
@@ -147,7 +248,7 @@
             return (0, _vitrarius.optic)(({state: state, sil: sil, action: action}, next) => {
                 return (0, _vitrarius.view)((0, _vitrarius.compose)(member, fragment => {
                     if (!sil[member]) {
-                        sil[__create__](sil, member);
+                        sil[_symbols.__create__](sil, member);
                     }
                     let ret = next({
                         state: fragment || {},
@@ -155,7 +256,7 @@
                         action: action
                     });
                     if (ret !== state) {
-                        sil[member][__push__]({
+                        sil[member][_symbols.__push__]({
                             done: false,
                             value: ret
                         });
@@ -168,7 +269,7 @@
             return (0, _vitrarius.optic)(({state: state, sil: sil}) => {
                 Object.keys(val).forEach(key => {
                     if (!sil || !sil.hasOwnProperty(key)) {
-                        sil[__create__](sil, key);
+                        sil[_symbols.__create__](sil, key);
                         (0, _vitrarius.view)(repsert(val[key]), {
                             state: undefined,
                             sil: sil[key]
@@ -176,7 +277,7 @@
                     }
                 });
                 if (val !== state) {
-                    sil[__push__]({
+                    sil[_symbols.__push__]({
                         done: false,
                         value: val
                     });
@@ -193,7 +294,7 @@
                         return a;
                     }, {});
                     delete _state[member];
-                    sil[member][__push__]({
+                    sil[member][_symbols.__push__]({
                         done: true
                     });
                     delete sil[member];
@@ -201,74 +302,5 @@
                 return _state;
             });
         }
-        function globalReducer(S, state = {}, action) {
-            let path, payload, val, sil = S.prototype[__root__];
-            switch (action.type) {
-              case __DEFINE__:
-                ({val: val, path: path} = action);
-                let _define = (0, _vitrarius.compose)(...path.map(traverse), repsert(val));
-                return (0, _vitrarius.view)(_define, {
-                    state: state,
-                    sil: sil
-                });
-
-              case __REMOVE__:
-                ({path: path} = action);
-                let eraser = erase(path.pop());
-                let remove = (0, _vitrarius.compose)(...path.map(traverse), eraser);
-                return (0, _vitrarius.view)(remove, {
-                    state: state,
-                    sil: sil
-                });
-
-              default:
-                path = action[__path__] || [];
-                let dispatch = (0, _vitrarius.compose)(...path.map(traverse), contort);
-                return (0, _vitrarius.view)(dispatch, {
-                    state: state,
-                    sil: sil,
-                    action: action
-                });
-            }
-        }
-        function create(...plugins) {
-            let namespace = {
-                Silhouette: defineSilhouette(),
-                createStore(reducer) {
-                    let state = {};
-                    return {
-                        dispatch(action) {
-                            state = reducer(state, action);
-                        }
-                    };
-                },
-                createSil(store) {
-                    let sil = namespace.Silhouette.prototype[__create__]();
-                    namespace.Silhouette.prototype[__store__] = store;
-                    namespace.Silhouette.prototype[__root__] = sil;
-                    return sil;
-                },
-                symbols: {
-                    __push__: __push__,
-                    __create__: __create__,
-                    __reducers__: __reducers__,
-                    __path__: __path__,
-                    __store__: __store__,
-                    __root__: __root__,
-                    __DEFINE__: __DEFINE__,
-                    __REMOVE__: __REMOVE__
-                }
-            };
-            Object.keys(namespace).filter(key => namespace[key] instanceof Function).forEach(key => {
-                plugins.map(p => p[key]).filter(f => f).reverse().forEach(f => {
-                    namespace[key] = f(namespace[key], namespace);
-                });
-            });
-            let reducer = globalReducer.bind(undefined, namespace.Silhouette);
-            let store = namespace.createStore(reducer);
-            return namespace.createSil(store);
-        }
-    }, function(module, exports) {
-        module.exports = __WEBPACK_EXTERNAL_MODULE_1__;
     } ]);
 });
