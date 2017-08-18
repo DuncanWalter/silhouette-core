@@ -9,13 +9,13 @@ import { traverse, erase, contort, repsert } from './optics'
 export function reducer(state = {}, action){
     if(!this.created){ return state; }
     let path, payload, val, sil = this.prototype[__root__];
-    switch(action.type){
-        case __DEFINE__:
+    switch(true){
+        case action[__DEFINE__]:
             ({ val, path } = action);
             let _define = compose(...path.map(traverse), repsert(val));
             return view(_define, { state, sil });
 
-        case __REMOVE__:
+        case action[__REMOVE__]:
             ({ path } = action);
             let eraser = erase(path.pop());
             let remove = compose(...path.map(traverse), eraser);
