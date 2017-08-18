@@ -8,7 +8,31 @@ function diff(pat, trg){
     return Object.keys(pat).reduce((a, k) => a && trg[k] && diff(pat[k], trg[k]), trg !== undefined);
 }
 
+function syncQueue(){
+    let active = false;
+    let next = { };
+    let last = next;
+    return {
+        enqueue(action){
+            last.value = action;
+            last.next = { };
+            last = last.next;
+        },
+        forEach(fun){
+            if(active){ return };
+            active = true;
+            while(next.next){
+                fun(next.value);
+                next = next.next;
+            }
+            active = false;
+        },
+    }
+}
+
 function defineSilhouette(){
+
+    let actionQueue = syncQueue();
 
     class Silhouette {
 
@@ -25,32 +49,32 @@ function defineSilhouette(){
             // dispatches are filtered here.
             if(!view(compose(...path.map(k => lens(o => o[k], (o, r) => r)), diff.bind(null, val)), this)){
                 // TODO make it as soft / non intrusive as possible
-                this[__store__].dispatch({ 
+                actionQueue.enqueue({ 
                     type: __DEFINE__, 
                     val: val,
                     path: [ ...this[__path__], ...path ],
                 });
+                actionQueue.forEach(this[__store__].dispatch);
             }
         }
 
         remove(...path){ // Escape Hatch...
-            this[__store__].dispatch({ 
+            actionQueue.enqueue({ 
                 type: __REMOVE__,
                 path: [ ...this[__path__], ...path ],
             });
+            actionQueue.forEach(this[__store__].dispatch);
         }
 
         dispatch(type, payload, locally = false){
-            this[__store__].dispatch(Object.assign({ 
+            actionQueue.enqueue(Object.assign({ 
                 type,
                 [__path__]: locally ? this[__path__] : [],
             }, payload));
+            actionQueue.forEach(this[__store__].dispatch);
         }
 
         extend(type, reducer, compose = false){
-            if(type instanceof Object){ 
-                // TODO snag all properties and continue
-            }
             this[__reducers__][type] = reducer;
         }
 
@@ -61,7 +85,21 @@ function defineSilhouette(){
     return Silhouette;
 }
 
-
+// use the redux applyMiddleware approach
+// on recursive steroids
+// to apply plugins cleanly
+function applyPlugin(base, plugin){
+    Object.keys(plugin).forEach(key => {
+        if(plugin[key] instanceof Function){
+            base[key] = plugin[key](base[key]);
+        } else if(plugin[key] instanceof Object){
+            base[key] = applyPlugin(base[key] || {}, plugin[key]);
+        } else {
+            throw new Error('The plugin provided contained terminal properties which were not middleware functions.')
+        }
+    });
+    return base;
+};
 
 export function create(...plugins){
 
@@ -69,6 +107,7 @@ export function create(...plugins){
     let Silhouette = defineSilhouette();
     let namespace = {
         Silhouette,
+        prototype: Silhouette.prototype,
         reducer: reducer.bind(Silhouette),
         createStore(reducer){
             let state = {};
@@ -95,13 +134,16 @@ export function create(...plugins){
         },
     }
 
-    // use the redux applyMiddleware approach
-    // to apply plugins cleanly
-    Object.keys(namespace).filter(key => namespace[key] instanceof Function).forEach(key => {
-        plugins.map(p => p[key]).filter(f => f).reverse().forEach(f => {
-            namespace[key] = f(namespace[key], namespace);
-        });
+    plugins.reverse().forEach(plugin => {
+        applyPlugin(namespace, plugin);
     });
+
+    // antiquated plugin application
+    // Object.keys(namespace).filter(key => namespace[key] instanceof Function).forEach(key => {
+    //     plugins.map(p => p[key]).filter(f => f).reverse().forEach(f => {
+    //         namespace[key] = f(namespace[key], namespace);
+    //     });
+    // });
 
     // use the namespace as it stands!
     let store = namespace.createStore(namespace.reducer);
