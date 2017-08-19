@@ -1,6 +1,6 @@
 {
   "name": "silhouette-core",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Atomic state management inspired by redux, observables, and optics.",
   "main": "dist/index.bundle.js",
   "scripts": {
