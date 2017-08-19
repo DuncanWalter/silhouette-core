@@ -71,11 +71,8 @@ function defineSilhouette(){
             actionQueue.forEach(this[__store__].dispatch);
         }
 
-        dispatch(type, payload, locally = false){
-            actionQueue.enqueue(Object.assign({ 
-                type,
-                [__path__]: locally ? this[__path__] : [],
-            }, payload));
+        dispatch(type, payload){
+            actionQueue.enqueue(Object.assign({ type }, payload));
             actionQueue.forEach(this[__store__].dispatch);
         }
 
@@ -100,7 +97,7 @@ function applyPlugin(base, plugin){
         } else if(plugin[key] instanceof Object){
             base[key] = applyPlugin(base[key] || {}, plugin[key]);
         } else {
-            throw new Error('The plugin provided contained terminal properties which were not middleware functions.')
+            throw new Error('The plugin provided contained terminal properties which were not middleware functions.');
         }
     });
     return base;
