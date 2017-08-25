@@ -124,8 +124,8 @@ export function create(...plugins){
             namespace.Silhouette.prototype[__root__] = sil;
             namespace.Silhouette.created = true;
             return sil;
-        }
-    }
+        },
+    };
 
     plugins.reverse().forEach(plugin => {
         applyPlugin(namespace, plugin, namespace);

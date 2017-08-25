@@ -61,17 +61,58 @@
         Object.defineProperty(exports, "__esModule", {
             value: true
         });
+        exports.symbols = undefined;
         exports.create = create;
         var _vitrarius = __webpack_require__(0);
         var _symbols = __webpack_require__(1);
+        var __symbols__ = _interopRequireWildcard(_symbols);
         var _reducer = __webpack_require__(3);
+        function _interopRequireWildcard(obj) {
+            if (obj && obj.__esModule) {
+                return obj;
+            } else {
+                var newObj = {};
+                if (obj != null) {
+                    for (var key in obj) {
+                        if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key];
+                    }
+                }
+                newObj.default = obj;
+                return newObj;
+            }
+        }
+        let symbols = exports.symbols = __symbols__;
         function diff(pat, trg) {
             if (!(pat instanceof Object || pat instanceof Array)) {
                 return trg !== undefined;
             }
             return Object.keys(pat).reduce((a, k) => a && trg[k] && diff(pat[k], trg[k]), trg !== undefined);
         }
+        function syncQueue() {
+            let active = false;
+            let next = {};
+            let last = next;
+            return {
+                enqueue(action) {
+                    last.value = action;
+                    last.next = {};
+                    last = last.next;
+                },
+                forEach(fun) {
+                    if (active) {
+                        return;
+                    }
+                    active = true;
+                    while (next.next) {
+                        fun(next.value);
+                        next = next.next;
+                    }
+                    active = false;
+                }
+            };
+        }
         function defineSilhouette() {
+            let actionQueue = syncQueue();
             class Silhouette {
                 [_symbols.__create__](parent, member) {
                     let sil = new Silhouette();
@@ -84,37 +125,53 @@
                 }
                 define(val, ...path) {
                     if (!(0, _vitrarius.view)((0, _vitrarius.compose)(...path.map(k => (0, _vitrarius.lens)(o => o[k], (o, r) => r)), diff.bind(null, val)), this)) {
-                        this[_symbols.__store__].dispatch({
-                            type: _symbols.__DEFINE__,
+                        actionQueue.enqueue({
+                            type: "__DEFINE__",
+                            [_symbols.__DEFINE__]: true,
                             val: val,
                             path: [ ...this[_symbols.__path__], ...path ]
                         });
+                        actionQueue.forEach(this[_symbols.__store__].dispatch);
                     }
                 }
                 remove(...path) {
-                    this[_symbols.__store__].dispatch({
-                        type: _symbols.__REMOVE__,
+                    actionQueue.enqueue({
+                        type: "__REMOVE__",
+                        [_symbols.__REMOVE__]: true,
                         path: [ ...this[_symbols.__path__], ...path ]
                     });
+                    actionQueue.forEach(this[_symbols.__store__].dispatch);
                 }
-                dispatch(type, payload, locally = false) {
-                    this[_symbols.__store__].dispatch(Object.assign({
-                        type: type,
-                        [_symbols.__path__]: locally ? this[_symbols.__path__] : []
+                dispatch(type, payload) {
+                    actionQueue.enqueue(Object.assign({
+                        type: type
                     }, payload));
+                    actionQueue.forEach(this[_symbols.__store__].dispatch);
                 }
                 extend(type, reducer, compose = false) {
-                    if (type instanceof Object) {}
                     this[_symbols.__reducers__][type] = reducer;
                 }
                 [_symbols.__push__]() {}
             }
             return Silhouette;
         }
+        function applyPlugin(base, plugin) {
+            Reflect.ownKeys(plugin).forEach(key => {
+                if (plugin[key] instanceof Function) {
+                    base[key] = plugin[key](base[key]);
+                } else if (plugin[key] instanceof Object) {
+                    base[key] = applyPlugin(base[key] || {}, plugin[key]);
+                } else {
+                    throw new Error("The plugin provided contained terminal properties which were not middleware functions.");
+                }
+            });
+            return base;
+        }
         function create(...plugins) {
             let Silhouette = defineSilhouette();
             let namespace = {
                 Silhouette: Silhouette,
+                prototype: Silhouette.prototype,
                 reducer: _reducer.reducer.bind(Silhouette),
                 createStore(reducer) {
                     let state = {};
@@ -130,22 +187,10 @@
                     namespace.Silhouette.prototype[_symbols.__root__] = sil;
                     namespace.Silhouette.created = true;
                     return sil;
-                },
-                symbols: {
-                    __push__: _symbols.__push__,
-                    __create__: _symbols.__create__,
-                    __reducers__: _symbols.__reducers__,
-                    __path__: _symbols.__path__,
-                    __store__: _symbols.__store__,
-                    __root__: _symbols.__root__,
-                    __DEFINE__: _symbols.__DEFINE__,
-                    __REMOVE__: _symbols.__REMOVE__
                 }
             };
-            Object.keys(namespace).filter(key => namespace[key] instanceof Function).forEach(key => {
-                plugins.map(p => p[key]).filter(f => f).reverse().forEach(f => {
-                    namespace[key] = f(namespace[key], namespace);
-                });
+            plugins.reverse().forEach(plugin => {
+                applyPlugin(namespace, plugin, namespace);
             });
             let store = namespace.createStore(namespace.reducer);
             return namespace.createSil(store);
@@ -164,8 +209,8 @@
                 return state;
             }
             let path, payload, val, sil = this.prototype[_symbols.__root__];
-            switch (action.type) {
-              case _symbols.__DEFINE__:
+            switch (true) {
+              case action[_symbols.__DEFINE__]:
                 ({val: val, path: path} = action);
                 let _define = (0, _vitrarius.compose)(...path.map(_optics.traverse), (0, _optics.repsert)(val));
                 return (0, _vitrarius.view)(_define, {
@@ -173,7 +218,7 @@
                     sil: sil
                 });
 
-              case _symbols.__REMOVE__:
+              case action[_symbols.__REMOVE__]:
                 ({path: path} = action);
                 let eraser = (0, _optics.erase)(path.pop());
                 let remove = (0, _vitrarius.compose)(...path.map(_optics.traverse), eraser);

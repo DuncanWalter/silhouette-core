@@ -1,4 +1,4 @@
-import { compose, each, inject, remove, optic, chain, view, lens } from 'vitrarius'
+import { compose, each, inject, remove, optic, chain, view, lens, parallelize, where } from 'vitrarius'
 import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__ } from './symbols'
 
 // contort is a knarly optical function which reduces over 
@@ -18,7 +18,6 @@ export function contort({ state, sil, action }){
     }
 
     if(transitional !== state){
-        // TODO will Object keys play nice with arrays?
         Object.keys(sil).forEach(key => {
             if(!transitional.hasOwnProperty(key)){
                 sil[key][__push__]({ done: true });
@@ -68,51 +67,59 @@ export function traverse(member){
     });
 }
 
-export function repsert(val){
-    return optic(({state, sil}) => {
-        Object.keys(val).forEach(key => {
-            if(!sil || !sil.hasOwnProperty(key)){
-                sil[__create__](sil, key);
-                view(repsert(val[key]), { state: undefined, sil: sil[key] });
-            }
-        });
-        if(val !== state){
-            sil[__push__]({ done: false, value: val });
-        }
-        return val;
-    });
+
+
+let asObject = o => o instanceof Object ? o : undefined;
+let asArray = a => a instanceof Object ? a : undefined;
+
+export function assert(o){
+    return __assert__(o);
 }
 
-// TODO replace repsert...
-// function define(val){
-//     return optic(({state, sil}) => {
-//         if(state === val){ return state; }
-//         let _state = state;
-//         if(typeof state !== typeof val){ _state = val; }
-//         Object,keys(val).
-
-
-//         Object.keys(val).forEach(key => {
-//             if(!sil || !sil.hasOwnProperty(key)){
-//                 sil[__create__](sil, key);
-//                 view(define(val[key]), { state: state[key], sil: sil[key] });
-//             }
-//         });
-//         if(val !== state){
-//             sil[__push__]({ done: false, value: val });
-//         }
-//         return val;
-//     });
-// }
+function __assert__({ state, sil, val }){
+    let flag = state === undefined;
+    if(asObject(val)){
+        let diff = {};
+        Object.keys(val).forEach(key => {
+            if(!sil.hasOwnProperty(key)){
+                flag = true;
+                sil[__create__](sil, key);
+                diff[key] = __assert__({
+                    state: (asObject(state) || {})[key],
+                    sil: sil[key],
+                    val: val[key],
+                });
+            } else {
+                let temp = __assert__({
+                    state: state[key],
+                    sil: sil[key],
+                    val: val[key],
+                });
+                if(temp !== state[key]){
+                    flag = true;
+                    diff[key] = temp;
+                }
+            }
+        });
+        if(flag){
+            return Object.assign({}, state, diff);
+        } else {
+            return state;
+        }
+    } else {
+        if(flag){
+            return val;
+        } else {
+            return state;
+        }
+    }
+}
 
 export function erase(member){
     return optic(({state, sil}) => {
         let _state = state;
         if(state.hasOwnProperty(member)){
-            _state = Object.keys(state).reduce((a, k) => {
-                a[k] = state[k];
-                return a;
-            }, {});
+            _state = Object.assign({}, state);
             delete _state[member];
             sil[member][__push__]({ done: true });
             delete sil[member];

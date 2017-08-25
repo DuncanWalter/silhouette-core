@@ -1,6 +1,6 @@
 import { compose, view } from 'vitrarius'
 import { __DEFINE__, __REMOVE__, __path__, __root__ } from './symbols'
-import { traverse, erase, contort, repsert } from './optics'
+import { traverse, erase, contort, assert } from './optics'
 
 // Silhouette's global reducer! Notice it references 'this';
 // reducer gets bound to a class definition of Silhouette
@@ -12,7 +12,7 @@ export function reducer(state = {}, action){
     switch(true){
         case action[__DEFINE__]:
             ({ val, path } = action);
-            let _define = compose(...path.map(traverse), repsert(val));
+            let _define = compose(...path.map(traverse), o => Object.assign(o, { val }), assert);
             return view(_define, { state, sil });
 
         case action[__REMOVE__]:
