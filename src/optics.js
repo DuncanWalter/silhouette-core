@@ -102,12 +102,15 @@ function __assert__({ state, sil, val }){
             }
         });
         if(flag){
-            return Object.assign({}, state, diff);
+            var res = Object.assign({}, state, diff);
+            sil[__push__]({ value: res });
+            return res;
         } else {
             return state;
         }
     } else {
         if(flag){
+            sil[__push__]({ value: val });
             return val;
         } else {
             return state;
