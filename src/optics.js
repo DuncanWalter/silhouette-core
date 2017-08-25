@@ -70,7 +70,7 @@ export function traverse(member){
 
 
 let asObject = o => o instanceof Object ? o : undefined;
-let asArray = a => a instanceof Object ? a : undefined;
+let asArray = a => a instanceof Array ? a : undefined;
 
 export function assert(o){
     return __assert__(o);
@@ -78,7 +78,22 @@ export function assert(o){
 
 function __assert__({ state, sil, val }){
     let flag = state === undefined;
-    if(asObject(val)){
+    if(asArray(val)){
+        if(flag || !asArray(state)){
+            let res = val.map((v, index) => {
+                sil[__create__](sil, index);
+                return __assert__({
+                    state: (asObject(state) || {})[index],
+                    sil: sil[index],
+                    val: val[index],
+                });
+            })
+            sil[__push__]({ value: res });
+            return val;
+        } else {
+            return state;
+        }
+    } else if(asObject(val)){
         let diff = {};
         Object.keys(val).forEach(key => {
             if(!sil.hasOwnProperty(key)){
@@ -101,7 +116,7 @@ function __assert__({ state, sil, val }){
                 }
             }
         });
-        if(flag){
+        if(flag || !asObject(state)){
             var res = Object.assign({}, state, diff);
             sil[__push__]({ value: res });
             return res;
