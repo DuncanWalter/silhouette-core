@@ -82,6 +82,7 @@ function __assert__({ state, sil, val }){
         if(flag || !asArray(state)){
             let res = val.map((v, index) => {
                 sil[__create__](sil, index);
+                sil[index][__push__]({ value: val[index], })
                 return __assert__({
                     state: (asObject(state) || {})[index],
                     sil: sil[index],
@@ -99,6 +100,7 @@ function __assert__({ state, sil, val }){
             if(!sil.hasOwnProperty(key)){
                 flag = true;
                 sil[__create__](sil, key);
+                sil[key][__push__]({ value: val[key], })
                 diff[key] = __assert__({
                     state: (asObject(state) || {})[key],
                     sil: sil[key],
