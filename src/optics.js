@@ -68,27 +68,22 @@ export function traverse(member){
 }
 
 
-
+let blank = {};
 let asObject = o => o instanceof Object ? o : undefined;
 let asArray = a => a instanceof Array ? a : undefined;
 
-export function assert(o){
-    return __assert__(o);
+export function assert({ state, sil, val }){
+    return __assert__(state, sil, val);
 }
 
-function __assert__({ state, sil, val }){
+function __assert__(state, sil, val){
     let flag = state === undefined;
     if(asArray(val)){
-        if(flag || !asArray(state)){
-            let res = val.map((v, index) => {
+        if(!asArray(state)){
+            let res = val.map((elem, index) => {
                 sil[__create__](sil, index);
-                sil[index][__push__]({ value: val[index], })
-                return __assert__({
-                    state: (asObject(state) || {})[index],
-                    sil: sil[index],
-                    val: val[index],
-                });
-            })
+                return __assert__(undefined, sil[index], elem);
+            });
             sil[__push__]({ value: res });
             return val;
         } else {
@@ -100,18 +95,9 @@ function __assert__({ state, sil, val }){
             if(!sil.hasOwnProperty(key)){
                 flag = true;
                 sil[__create__](sil, key);
-                sil[key][__push__]({ value: val[key], })
-                diff[key] = __assert__({
-                    state: (asObject(state) || {})[key],
-                    sil: sil[key],
-                    val: val[key],
-                });
+                diff[key] = __assert__(undefined, sil[key], val[key]);
             } else {
-                let temp = __assert__({
-                    state: state[key],
-                    sil: sil[key],
-                    val: val[key],
-                });
+                let temp = __assert__(state[key], sil[key], val[key]);
                 if(temp !== state[key]){
                     flag = true;
                     diff[key] = temp;
@@ -119,7 +105,7 @@ function __assert__({ state, sil, val }){
             }
         });
         if(flag || !asObject(state)){
-            var res = Object.assign({}, state, diff);
+            var res = Object.assign({}, asObject(state) || blank, diff);
             sil[__push__]({ value: res });
             return res;
         } else {

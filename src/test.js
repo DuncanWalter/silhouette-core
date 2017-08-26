@@ -76,6 +76,15 @@ tap.test('silhouette tests', t => {
     sil.b.dispatch('any', { });
     t.equal(incrb, 1); // 10
     t.equal(incra, 1); // 11
+
+    let s = create();
+    s.define({a: [{v: 1}]});
+    t.true(s.a[0].v); // 12
+
+
+
+
+
     t.end();
 });
 
