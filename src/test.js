@@ -77,9 +77,19 @@ tap.test('silhouette tests', t => {
     t.equal(incrb, 1); // 10
     t.equal(incra, 1); // 11
 
+    let d = undefined;
+    sil.b.c.extend('incr', v => { d = v; return v; })
+    sil.b.c[0].extend('incr', v => v + 1);
+    sil.dispatch('incr', {});
+    t.true(d instanceof Array);
+    sil.dispatch('incr', {});
+    t.true(d instanceof Array);
+
+
+
     let s = create();
     s.define({a: [{v: 1}]});
-    t.true(s.a[0].v); // 12
+    t.true(s.a[0].v);
 
 
 
