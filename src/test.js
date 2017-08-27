@@ -86,12 +86,18 @@ tap.test('silhouette tests', t => {
     t.true(d instanceof Array);
 
 
-
     let s = create();
-    s.define({a: [{v: 1}]});
+    s.define({a: [{v: 1}, 2]});
     t.true(s.a[0].v);
 
+    s.extend('rip', s => {
+        let lst = s.a.map(i => i);
+        lst.pop();
+        return {a: lst};
+    });
+    s.dispatch('rip', {});
 
+    t.false(s.a[1]);
 
 
 

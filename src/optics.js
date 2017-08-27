@@ -5,8 +5,8 @@ import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __
 // a state while continuously updating its silhouette and 
 // emitting to relevant streams. This function is the main
 // motivation for the creation of the entire optics module.
-export function contort({ state, sil, action }){
-    
+export function contort({ state, sil, action, dirty }){
+    let __dirty__ = dirty || false;
     let transitional = state;
 
     if(sil[__reducers__][action.type]){
@@ -17,7 +17,8 @@ export function contort({ state, sil, action }){
         throw new Error('Reducer returned undefined; are you missing a return statement?');
     }
 
-    if(transitional !== state){
+    if(transitional !== state || __dirty__){
+        __dirty__ = true;
         Object.keys(sil).forEach(key => {
             if(!transitional.hasOwnProperty(key)){
                 sil[key][__push__]({ done: true });
@@ -38,8 +39,9 @@ export function contort({ state, sil, action }){
         let member = itr.next().value;
         return { 
             state: frag, 
-            action: action, 
-            sil: sil[member] || sil[__create__](sil, member),
+            action: action,
+            sil: sil[member],
+            dirty: __dirty__,
         }
     };
 
