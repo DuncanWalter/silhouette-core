@@ -87,18 +87,17 @@ tap.test('silhouette tests', t => {
 
 
     let s = create();
-    s.define({a: [{v: 1}, 2]});
+    s.define({a: [{v: 1}, 2, {v: 1}]});
     t.true(s.a[0].v);
 
     s.extend('rip', s => {
-        let lst = s.a.map(i => i);
-        lst.pop();
-        return {a: lst};
+        return {a: [s.a[0], s.a[1]]};
     });
     s.dispatch('rip', {});
 
-    t.false(s.a[1]);
+    t.false(s.a[2]);
 
+    
 
 
     t.end();

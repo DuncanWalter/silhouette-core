@@ -1,12 +1,11 @@
 import { compose, each, inject, remove, optic, chain, view, lens, parallelize, where } from 'vitrarius'
-import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__ } from './symbols'
+import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__ } from './symbols'
 
 // contort is a knarly optical function which reduces over 
 // a state while continuously updating its silhouette and 
 // emitting to relevant streams. This function is the main
 // motivation for the creation of the entire optics module.
-export function contort({ state, sil, action, dirty }){
-    let __dirty__ = dirty || false;
+export function contort({ state, sil, action }){
     let transitional = state;
 
     if(sil[__reducers__][action.type]){
@@ -17,8 +16,7 @@ export function contort({ state, sil, action, dirty }){
         throw new Error('Reducer returned undefined; are you missing a return statement?');
     }
 
-    if(transitional !== state || __dirty__){
-        __dirty__ = true;
+    if(transitional !== sil[__state__]){
         Object.keys(sil).forEach(key => {
             if(!transitional.hasOwnProperty(key)){
                 sil[key][__push__]({ done: true });
@@ -40,8 +38,7 @@ export function contort({ state, sil, action, dirty }){
         return { 
             state: frag, 
             action: action,
-            sil: sil[member],
-            dirty: __dirty__,
+            sil: sil[member]
         }
     };
 

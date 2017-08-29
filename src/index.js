@@ -1,5 +1,5 @@
 import { compose, view, lens } from 'vitrarius'
-import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__ } from './symbols'
+import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__ } from './symbols'
 import { reducer } from './reducer'
 
 import * as __symbols__ from './symbols'
@@ -80,7 +80,9 @@ function defineSilhouette(){
             this[__reducers__][type] = reducer;
         }
 
-        [__push__](/*/{ value, done }/*/){/*/OVERWRITE WITH PLUGINS/*/}
+        [__push__]({ value, done }){
+            this[__state__] = value;
+        }
 
     }
 
