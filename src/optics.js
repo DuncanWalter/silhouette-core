@@ -44,7 +44,7 @@ export function contort({ state, sil, action }){
 
     let final = view(compose(each(), fun, contort), transitional);
 
-    if(final != state){
+    if(final != sil[__state__]){
         sil[__push__]({ done: false, value: final });
     }
 
