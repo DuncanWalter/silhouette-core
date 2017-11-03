@@ -1,134 +1,132 @@
-import { compose, each, inject, remove, optic, chain, view, lens, parallelize, where } from 'vitrarius'
-import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__ } from './symbols'
+import { compose, optic, chain, view, lens } from 'vitrarius'
+import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__, __children__ } from './symbols'
 
-// contort is a knarly optical function which reduces over 
-// a state while continuously updating its silhouette and 
-// emitting to relevant streams. This function is the main
-// motivation for the creation of the entire optics module.
-export function contort({ state, sil, action }){
-    let transitional = state;
+const blank = Object.create(null);
 
-    if(sil[__reducers__][action.type]){
-        transitional = sil[__reducers__][action.type](state, action);
-    }
+export let contort = ({ state, sil, action }) => __contort__(state, sil, action);
+function __contort__(state, sil, action){
 
-    if(transitional === undefined){
+    let r = sil[__reducers__].get(action.type);
+    let t = r ? r(state, action) : state;
+    
+    if(t === undefined){
         throw new Error('Reducer returned undefined; are you missing a return statement?');
     }
 
-    if(transitional !== sil[__state__]){
-        Object.keys(sil).forEach(key => {
-            if(!transitional.hasOwnProperty(key)){
-                sil[key][__push__]({ done: true });
-                delete sil[key];
+    let c = sil[__children__] || blank;
+
+    t = Object.keys(t).reduce((a, k) => {
+
+        let temp = a;
+        let child = c instanceof Array ? c[k] : c.get(k);
+        let fragment = child ? __contort__(temp[k], child, action) : temp[k];
+        
+        if(fragment != temp[k]){
+            if(temp === t){
+                temp = t instanceof Array ? t.map(i => i) : Object.assign({}, t);
             }
-        });
-
-        Object.keys(transitional).forEach(key => {
-            if(!sil.hasOwnProperty(key)){
-                sil[__create__](sil, key);
-            }
-        });
-    }
-
-    let itr = Object.keys(transitional)[Symbol.iterator]();
-
-    let fun = frag => {
-        let member = itr.next().value;
-        return { 
-            state: frag, 
-            action: action,
-            sil: sil[member]
+            temp[k] = fragment;
         }
-    };
 
-    let final = view(compose(each(), fun, contort), transitional);
+        return temp;
+    }, t);
 
-    if(final != sil[__state__]){
-        sil[__push__]({ done: false, value: final });
+    Object.keys(sil[__state__]).forEach(k => {
+        if(!t.hasOwnProperty(k)){
+            if(t instanceof Array){
+                while (t.length < sil[__children__].length) sil[__children__].pop(); 
+            } else if(t instanceof Object){
+                sil[__children__].delete(k);
+            }
+        }
+    });
+
+    if(t != sil[__state__]){
+        sil[__push__]({ done: false, value: t });
     }
 
-    return final;
+    return t;
 }
 
 // an optic wrapping the standard pluck optic to
 // activate silhouette streams on change detection
 export function traverse(member){
     return optic(({ state, sil, action }, next) => {
-        return view(compose(member, (fragment) => {
-            if(!sil[member]){ sil[__create__](sil, member); }
-            let ret = next({ state: fragment || {}, sil: sil[member], action });
-            if(ret !== state){
-                sil[member][__push__]({ done: false, value: ret });
+        return view(compose(member, fragment => {
+
+            if(!sil[__children__][member]){
+                sil[__create__](member); 
             }
-            return ret;
-        }), state)
-    });
-}
 
 
-let blank = {};
-let asObject = o => o instanceof Object ? o : undefined;
-let asArray = a => a instanceof Array ? a : undefined;
-
-export function assert({ state, sil, val }){
-    return __assert__(state, sil, val);
-}
-
-function __assert__(state, sil, val){
-    let flag = state === undefined;
-    if(asArray(val)){
-        if(!asArray(state)){
-            let res = val.map((elem, index) => {
-                sil[__create__](sil, index);
-                return __assert__(undefined, sil[index], elem);
+            let c = sil.select(member);
+            
+            let ret = next({ 
+                state: fragment || blank, 
+                sil: c, 
+                action,
             });
-            sil[__push__]({ value: res });
-            return val;
-        } else {
-            return state;
-        }
-    } else if(asObject(val)){
-        let diff = {};
-        Object.keys(val).forEach(key => {
-            if(!sil.hasOwnProperty(key)){
-                flag = true;
-                sil[__create__](sil, key);
-                diff[key] = __assert__(undefined, sil[key], val[key]);
-            } else {
-                let temp = __assert__(state[key], sil[key], val[key]);
-                if(temp !== state[key]){
-                    flag = true;
-                    diff[key] = temp;
-                }
+
+            if(ret !== state){
+                c[__push__]({ 
+                    done: false, 
+                    value: ret, 
+                });
             }
-        });
-        if(flag || !asObject(state)){
-            var res = Object.assign({}, asObject(state) || blank, diff);
-            sil[__push__]({ value: res });
-            return res;
-        } else {
-            return state;
-        }
-    } else {
-        if(flag){
-            sil[__push__]({ value: val });
-            return val;
-        } else {
-            return state;
-        }
-    }
+
+            return ret;
+
+        }), state);
+    });
 }
 
-export function erase(member){
-    return optic(({state, sil}) => {
-        let _state = state;
-        if(state.hasOwnProperty(member)){
-            _state = Object.assign({}, state);
-            delete _state[member];
-            sil[member][__push__]({ done: true });
-            delete sil[member];
+
+export let assert = ({ state, sil, val }) => __assert__(state, sil, val);
+function __assert__(state, sil, val){
+
+    if(state === val){
+        return val;
+    } else if(state === undefined || state != sil.state){
+        sil[__push__]({ value: val, done: false });
+        return val;
+    } else {
+        let ret = Object.keys(val).reduce((a, k) => {
+            let t = a;
+            if(!t.hasOwnProperty(k)){
+                if(t === sil[__state__]){
+                    t = t instanceof Array ? t.map(i => i) : Object.assign({}, t);
+                }
+                let c = sil.select(k);
+                t[k] = __assert__(undefined, c, val[k]);
+            }
+            return t;
+        }, state);
+
+        if(ret !== state){
+            sil[__push__]({ done: false, value: ret });
         }
-        return _state;
-    });
+
+        return ret;
+    }    
+}
+
+
+export let erase = member => ({ state, sil }) => __erase__(state, sil, member);
+function __erase__(state, sil, member){
+    if(state.hasOwnProperty(member)){
+        let t =  state instanceof Array ? state.map(i => i) : Object.assign({}, state);
+        if(state instanceof Array){
+            t[member] = undefined;
+        } else {
+            delete t[member];
+        }
+        sil[__push__]({ value: t, done: false });
+        let c = sil[__children__] instanceof Array ? sil[__children__][member] : sil[__children__].get(member);
+        if(c){
+            c[__push__]({ done: true });
+        }
+        return t;
+    } else {
+        return state;
+    }
 }

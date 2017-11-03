@@ -1,5 +1,5 @@
 import { compose, view, lens } from 'vitrarius'
-import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__ } from './symbols'
+import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__, __children__ } from './symbols'
 import { reducer } from './reducer'
 
 import * as __symbols__ from './symbols'
@@ -39,12 +39,17 @@ function defineSilhouette(){
 
     class Silhouette {
 
-        [__create__](parent, member){
-            let sil = new Silhouette();
-            sil[__path__] = parent ? [...parent[__path__], member] : [];
-            sil[__reducers__] = {};
-            if( parent !== undefined ){ parent[member] = sil; }
-            return sil;
+        constructor(initial, ...path){
+            Object.assign(this, {
+                [__path__]: path,
+                [__reducers__]: new Map(),
+                [__children__]: undefined,
+            });
+            this[__push__]({ value: initial, done: false });
+        }
+
+        [__create__](member){
+            return new Silhouette(this[__state__][member], ...this[__path__], member);
         }
 
         define(val, ...path){
@@ -77,11 +82,52 @@ function defineSilhouette(){
         }
 
         extend(type, reducer, compose = false){
-            this[__reducers__][type] = reducer;
+            this[__reducers__].set(type, reducer);
+        }
+
+        select(...path){
+            // TODO make errors friendly for devs
+            return path.reduce((a, p) => {
+                if(a[__children__] instanceof Array){
+                    if(!a[__children__][p]){
+                        // build a new path as nessesary
+                        a[__children__][p] = a[__create__](p);
+                    }
+                    return a[__children__][p];
+                } else if(a[__children__] instanceof Map){
+                    if(!a[__children__].get(p)){
+                        // build a new path as nessesary
+                        a[__children__].set(p, a[__create__](p));
+                    }
+                    return a[__children__].get(p);
+                } else {
+                    throw new Error('Silhouette will not select properties of primitive and/or transient fields.');
+                }
+            }, this);
         }
 
         [__push__]({ value, done }){
-            this[__state__] = value;
+            if(done){
+                this[__children__] = undefined;
+                this[__state__   ] = undefined;
+            } else {
+                this[__state__] = value;
+                if(this[__children__] === undefined){
+                    if(value instanceof Array){
+                        this[__children__] = [];
+                    } else {
+                        this[__children__] = new Map();
+                    }
+                }
+            }
+        }
+
+        get state(){
+            return this[__state__];
+        }
+
+        set state(v){
+            throw new Error('State cannot be directly set or mutated.');
         }
 
     }
@@ -117,11 +163,13 @@ export function create(...plugins){
         createStore(reducer){
             let state = {};
             return {
-                dispatch(action){ state = reducer(state, action); }
+                dispatch(action){
+                    state = reducer(state, action); 
+                }
             };
         },
         createSil(store){
-            let sil = namespace.Silhouette.prototype[__create__]();
+            let sil = new namespace.Silhouette({});
             namespace.Silhouette.prototype[__store__] = store;
             namespace.Silhouette.prototype[__root__] = sil;
             namespace.Silhouette.created = true;
