@@ -45,25 +45,23 @@ function defineSilhouette(){
 
     let actionQueue = syncQueue();
 
-    class Silhouette {
+    function Silhouette(initial, ...path){
+        Object.assign(this, {
+            [__path__]: path,
+            [__reducers__]: new Map(),
+            [__children__]: undefined,
+        });
+        this[__push__]({ value: initial, done: false });
+    };
 
-        constructor(initial, ...path){
-            Object.assign(this, {
-                [__path__]: path,
-                [__reducers__]: new Map(),
-                [__children__]: undefined,
-            });
-            this[__push__]({ value: initial, done: false });
-        }
-
+    Silhouette.prototype = {
         [__create__](member){
             let c = this[__children__];
             if(!c.get(member)){
                 c.set(member, new Silhouette(this[__state__][member], ...this[__path__], member));
             }
             return c.get(member);
-        }
-
+        },
         define(val, ...path){
             // to keep logs clean and better support redux devtools,
             // dispatches are filtered here.
@@ -77,8 +75,7 @@ function defineSilhouette(){
                 });
                 actionQueue.forEach(this[__store__].dispatch);
             }
-        }
-
+        },
         remove(...path){ // Escape Hatch...
             actionQueue.enqueue({ 
                 type: '__REMOVE__',
@@ -86,24 +83,20 @@ function defineSilhouette(){
                 path: [ ...this[__path__], ...path ],
             });
             actionQueue.forEach(this[__store__].dispatch);
-        }
-
+        },
         dispatch(type, payload){
             actionQueue.enqueue(Object.assign({ type }, payload));
             actionQueue.forEach(this[__store__].dispatch);
-        }
-
+        },
         extend(type, reducer, compose = false){
             this[__reducers__].set(type, reducer);
-        }
-
+        },
         select(...path){
             // TODO make errors friendly for devs
             return path.reduce((a, p) => {
                 return a[__children__].get(p) || a[__create__](p);            
             }, this);
-        }
-
+        },
         [__push__]({ value, done }){
             if(done){
                 this[__children__] = undefined;
@@ -118,17 +111,14 @@ function defineSilhouette(){
                     }
                 }
             }
-        }
-
+        },
         get state(){
             return this[__state__];
-        }
-
+        },
         set state(v){
             throw new Error('State cannot be directly set or mutated.');
-        }
-
-    }
+        },
+    };
 
     return Silhouette;
 }
@@ -141,7 +131,7 @@ function applyPlugin(base, plugin){
         if(plugin[key] instanceof Function){
             base[key] = plugin[key](base[key]);
         } else if(plugin[key] instanceof Object){
-            base[key] = applyPlugin(base[key] || {}, plugin[key]);
+            base[key] = applyPlugin(base[key], plugin[key]);
         } else {
             throw new Error('The plugin provided contained terminal properties which were not middleware functions.');
         }
@@ -176,7 +166,7 @@ export function create(...plugins){
     };
 
     plugins.reverse().forEach(plugin => {
-        applyPlugin(namespace, plugin, namespace);
+        applyPlugin(namespace, plugin);
     });
 
     // use the namespace as it stands!

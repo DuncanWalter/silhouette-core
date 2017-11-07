@@ -69,9 +69,9 @@ console.log(sil);
 sil.step.observe().subscribe(v => step = v);
 
 // reducers and actions
-sil.value.extend('incr', (value, action) => value + step);
-sil.value.extend('decr', (value, action) => value - step);
-sil.step.extend('FASTER!', (step, action) => step + 1);
+sil.select('value').extend('incr', (value, action) => value + step);
+sil.select('value').extend('decr', (value, action) => value - step);
+sil.select('step').extend('FASTER!', (step, action) => step + 1);
 
 // so we can see state at each update
 sil.observe().subscribe(v => console.log(v)); // > { value: 0, step: 1 }
@@ -81,7 +81,7 @@ sil.dispatch('FASTER!', {});  // > { value:  1, step: 2 }
 sil.dispatch('decr', {});     // > { value: -1, step: 2 }
 
 // dispatches work from any silhouette
-sil.step.dispatch('incr', {}); // > { value:  1, step: 2 }
+sil.select('step').dispatch('incr', {}); // > { value:  1, step: 2 }
 ```
 
 
@@ -101,5 +101,5 @@ Special thanks to Mark Erikson for critiquing and inspiring aspects of Silhouett
 ---------------
 
 My current focus is on... 
-1. supporting the redux dev-tools as completely as possible
-2. getting example applications for Silhouette online
+1. getting example applications for Silhouette online
+2. adding generator based asynchronous action scheduling
