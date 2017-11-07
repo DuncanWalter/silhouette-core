@@ -16,9 +16,7 @@ tap.test('silhouette tests', t => {
     sil.define({ a: 3, b: { c: [1], d: 4 }});
     t.true(sil.select('a')); // 2
     t.true(sil.select('b', 'c')); // 3
-    // console.log(sil);
     sil.remove('b', 'c');
-    // console.log(sil);
     t.same(removes, 1); // 4
     t.same(sil.select('b', 'c').state, undefined); // 5
     t.true(sil.select('b').select('d')); // 6
@@ -26,6 +24,8 @@ tap.test('silhouette tests', t => {
     t.true(sil.select('b','c', 0)); // 7
     let incra = 0;
     let incrb = 0;
+
+    t.equal(sil.select('b').state, sil.state.b); // 8
 
     sil.select('b').extend('whatever', (s, a) => {
         incrb++;
@@ -36,11 +36,11 @@ tap.test('silhouette tests', t => {
         return s;
     });
     sil.select('b').dispatch('whatever', { });
-    t.equal(incrb, 1); // 8
-    t.equal(incra, 0); // 9
+    t.equal(incrb, 1); // 9
+    t.equal(incra, 0); // 10
     sil.select('b').dispatch('any', { });
-    t.equal(incrb, 1); // 10
-    t.equal(incra, 1); // 11
+    t.equal(incrb, 1); // 11
+    t.equal(incra, 1); // 12
 
     let d = undefined;
     sil.select('b').select('c').extend('incr', v => { d = v; return v; })

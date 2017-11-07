@@ -3,6 +3,14 @@ import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __
 
 const blank = Object.create(null);
 
+function clone(data){
+    switch(true){
+        case data instanceof Array: return data.map(i => i);
+        case data instanceof Object: return Object.assign({}, data);
+        default: return data;
+    }
+}
+
 export let contort = ({ state, sil, action }) => __contort__(state, sil, action);
 function __contort__(state, sil, action){
 
@@ -18,7 +26,7 @@ function __contort__(state, sil, action){
     t = Object.keys(t).reduce((a, k) => {
 
         let temp = a;
-        let child = c instanceof Array ? c[k] : c.get(k);
+        let child = c.get(k);
         let fragment = child ? __contort__(temp[k], child, action) : temp[k];
         
         if(fragment != temp[k]){
@@ -51,32 +59,19 @@ function __contort__(state, sil, action){
 // an optic wrapping the standard pluck optic to
 // activate silhouette streams on change detection
 export function traverse(member){
-    return optic(({ state, sil, action }, next) => {
-        return view(compose(member, fragment => {
-
-            if(!sil[__children__][member]){
-                sil[__create__](member); 
-            }
-
-
-            let c = sil.select(member);
-            
-            let ret = next({ 
-                state: fragment || blank, 
-                sil: c, 
-                action,
-            });
-
-            if(ret !== state){
-                c[__push__]({ 
-                    done: false, 
-                    value: ret, 
-                });
-            }
-
-            return ret;
-
-        }), state);
+    return optic(({ sil, action }, next) => {
+        let state = sil.state;
+        let fragment = next({ 
+            sil: sil.select(member),
+            state: state[member],
+            action,
+        });
+        if(state[member] !== fragment){
+            state = clone(state);
+            state[member] = fragment;
+            sil[__push__]({ value: state, done: false });
+        }
+        return state;
     });
 }
 

@@ -33,6 +33,14 @@ function syncQueue(){
     }
 }
 
+// TODO flesh out further?
+function asMap(data){
+    return data instanceof Map ? data : Object.assign(Object.create(data), {
+        get(i){ return data[i]; },
+        set(i, v){ data[i] = v; },
+    });
+}
+
 function defineSilhouette(){
 
     let actionQueue = syncQueue();
@@ -49,7 +57,11 @@ function defineSilhouette(){
         }
 
         [__create__](member){
-            return new Silhouette(this[__state__][member], ...this[__path__], member);
+            let c = this[__children__];
+            if(!c.get(member)){
+                c.set(member, new Silhouette(this[__state__][member], ...this[__path__], member));
+            }
+            return c.get(member);
         }
 
         define(val, ...path){
@@ -88,21 +100,7 @@ function defineSilhouette(){
         select(...path){
             // TODO make errors friendly for devs
             return path.reduce((a, p) => {
-                if(a[__children__] instanceof Array){
-                    if(!a[__children__][p]){
-                        // build a new path as nessesary
-                        a[__children__][p] = a[__create__](p);
-                    }
-                    return a[__children__][p];
-                } else if(a[__children__] instanceof Map){
-                    if(!a[__children__].get(p)){
-                        // build a new path as nessesary
-                        a[__children__].set(p, a[__create__](p));
-                    }
-                    return a[__children__].get(p);
-                } else {
-                    throw new Error('Silhouette will not select properties of primitive and/or transient fields.');
-                }
+                return a[__children__].get(p) || a[__create__](p);            
             }, this);
         }
 
@@ -114,7 +112,7 @@ function defineSilhouette(){
                 this[__state__] = value;
                 if(this[__children__] === undefined){
                     if(value instanceof Array){
-                        this[__children__] = [];
+                        this[__children__] = asMap([]);
                     } else {
                         this[__children__] = new Map();
                     }
