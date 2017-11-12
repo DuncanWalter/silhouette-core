@@ -5,6 +5,10 @@ import { reducer } from './reducer'
 import * as __symbols__ from './symbols'
 export let symbols = __symbols__;
 
+// TODO get rid of __path__ altogether? is great for debugging, but technically lies after array shifts... might need to keep
+// TODO preserve path integrity when using array sils...
+
+
 // used only to filter out useless dispatches on define calls
 function diff(pat, trg){
     if(!(pat instanceof Object || pat instanceof Array)){ return trg !== undefined }
@@ -38,6 +42,7 @@ function asMap(data){
     return data instanceof Map ? data : Object.assign(Object.create(data), {
         get(i){ return data[i]; },
         set(i, v){ data[i] = v; },
+        delete(i){ data.splice(i, 1); },
     });
 }
 
@@ -106,7 +111,7 @@ function defineSilhouette(){
                 if(this[__children__] === undefined){
                     if(value instanceof Array){
                         this[__children__] = asMap([]);
-                    } else {
+                    } else if(value instanceof Object){
                         this[__children__] = new Map();
                     }
                 }

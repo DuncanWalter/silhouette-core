@@ -21,12 +21,12 @@ function __contort__(state, sil, action){
         throw new Error('Reducer returned undefined; are you missing a return statement?');
     }
 
-    let c = sil[__children__] || blank;
+    let c = sil[__children__];
 
     t = Object.keys(t).reduce((a, k) => {
 
         let temp = a;
-        let child = c.get(k);
+        let child = c ? c.get(k): undefined;
         let fragment = child ? __contort__(temp[k], child, action) : temp[k];
         
         if(fragment != temp[k]){
@@ -89,7 +89,7 @@ function __assert__(state, sil, val){
             let t = a;
             if(!t.hasOwnProperty(k)){
                 if(t === sil[__state__]){
-                    t = t instanceof Array ? t.map(i => i) : Object.assign({}, t);
+                    t = clone(t);
                 }
                 let c = sil.select(k);
                 t[k] = __assert__(undefined, c, val[k]);
@@ -109,17 +109,18 @@ function __assert__(state, sil, val){
 export let erase = member => ({ state, sil }) => __erase__(state, sil, member);
 function __erase__(state, sil, member){
     if(state.hasOwnProperty(member)){
-        let t =  state instanceof Array ? state.map(i => i) : Object.assign({}, state);
+        let t =  clone(state);
         if(state instanceof Array){
             t[member] = undefined;
-        } else {
+        } else if(state instanceof Object){
             delete t[member];
         }
         sil[__push__]({ value: t, done: false });
-        let c = sil[__children__] instanceof Array ? sil[__children__][member] : sil[__children__].get(member);
+        let c = sil[__children__].get(member);
         if(c){
             c[__push__]({ done: true });
         }
+        sil[__children__].delete(member);
         return t;
     } else {
         return state;
