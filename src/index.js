@@ -1,9 +1,11 @@
-import { compose, view, lens } from 'vitrarius'
+import { compose, view, lens, Container } from 'vitrarius'
 import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__, __children__ } from './symbols'
 import { reducer } from './reducer'
 
 import * as __symbols__ from './symbols'
 export let symbols = __symbols__;
+
+let { get, set, clone, has, cut, members } = Container;
 
 // TODO get rid of __path__ altogether? is great for debugging, but technically lies after array shifts... might need to keep
 // TODO preserve path integrity when using array sils...
@@ -12,7 +14,7 @@ export let symbols = __symbols__;
 // used only to filter out useless dispatches on define calls
 function diff(pat, trg){
     if(!(pat instanceof Object || pat instanceof Array)){ return trg !== undefined }
-    return Object.keys(pat).reduce((a, k) => a && trg[k] && diff(pat[k], trg[k]), trg !== undefined);
+    return members(pat).reduce((a, k) => a && get(trg, k) && diff(get(pat, k), get(trg, k)), trg !== undefined);
 }
 
 function syncQueue(){
@@ -37,40 +39,39 @@ function syncQueue(){
     }
 }
 
-// TODO flesh out further?
-function asMap(data){
-    return data instanceof Map ? data : Object.assign(Object.create(data), {
-        get(i){ return data[i]; },
-        set(i, v){ data[i] = v; },
-        delete(i){ data.splice(i, 1); },
-    });
-}
-
 function defineSilhouette(){
 
     let actionQueue = syncQueue();
 
+    let trap = {
+        get(trg, mem){
+            let h = trg[__children__] && has(trg[__children__], mem);
+            let i = mem in trg;
+            return (i && !h) ? trg[mem] : trg.select(mem);
+        },
+    };
+
     function Silhouette(initial, ...path){
-        Object.assign(this, {
-            [__path__]: path,
-            [__reducers__]: new Map(),
-            [__children__]: undefined,
-        });
-        this[__push__]({ value: initial, done: false });
+        let trg = Object.create(Silhouette.prototype);
+        trg[__path__] = path,
+        trg[__reducers__] = new Map(),
+        trg[__children__] = undefined,
+        trg[__push__]({ value: initial, done: false });
+        return new Proxy(trg, trap);
     };
 
     Silhouette.prototype = {
         [__create__](member){
             let c = this[__children__];
-            if(!c.get(member)){
-                c.set(member, new Silhouette(this[__state__][member], ...this[__path__], member));
+            if(!has(c, member)){
+                set(c, member, new Silhouette(get(this[__state__], member), ...this[__path__], member));
             }
-            return c.get(member);
+            return get(c, member);
         },
         define(val, ...path){
             // to keep logs clean and better support redux devtools,
             // dispatches are filtered here.
-            if(!view(compose(...path.map(k => lens(o => o[k], (o, r) => r)), diff.bind(null, val)), this)){
+            if(!view(compose(...path.map(k => o => o[k]), diff.bind(null, val)), this.state)){
                 // TODO make it as soft / non intrusive as possible
                 actionQueue.enqueue({ 
                     type: '__DEFINE__',
@@ -99,24 +100,22 @@ function defineSilhouette(){
         select(...path){
             // TODO make errors friendly for devs
             return path.reduce((a, p) => {
-                return a[__children__].get(p) || a[__create__](p);            
+                let c = a[__children__];
+                return get(c, p) || a[__create__](p);            
             }, this);
         },
         [__push__]({ value, done }){
             if(done){
                 this[__children__] = undefined;
-                this[__state__   ] = undefined;
+                this[__state__] = undefined;
             } else {
                 this[__state__] = value;
-                if(this[__children__] === undefined){
-                    if(value instanceof Array){
-                        this[__children__] = asMap([]);
-                    } else if(value instanceof Object){
-                        this[__children__] = new Map();
-                    }
+                if(this[__children__] === undefined && this[__state__] !== undefined){
+                    this[__children__] = Container.create(this.state);
                 }
             }
         },
+        // TODO: Should this accessor even exist?
         get state(){
             return this[__state__];
         },

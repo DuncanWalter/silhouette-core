@@ -18,10 +18,10 @@ tap.test('silhouette tests', t => {
     t.true(sil.select('b', 'c')); // 3
     sil.remove('b', 'c');
     t.same(removes, 1); // 4
-    t.same(sil.select('b', 'c').state, undefined); // 5
+    t.same(sil.b.c.state, undefined); // 5
     t.true(sil.select('b').select('d')); // 6
     sil.select('b').define([10, 20, 30], 'c');
-    t.true(sil.select('b','c', 0)); // 7
+    t.true(sil.b.c[0]); // 7
     let incra = 0;
     let incrb = 0;
 

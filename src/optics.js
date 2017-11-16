@@ -1,18 +1,11 @@
-import { compose, optic, chain, view, lens } from 'vitrarius'
+import { Container } from 'vitrarius'
 import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__, __children__ } from './symbols'
 
-const blank = Object.create(null);
-
-function clone(data){
-    switch(true){
-        case data instanceof Array: return data.map(i => i);
-        case data instanceof Object: return Object.assign({}, data);
-        default: return data;
-    }
-}
+let { get, set, cut, clone, has, members } = Container;
 
 export let contort = ({ state, sil, action }) => __contort__(state, sil, action);
 function __contort__(state, sil, action){
+
 
     let r = sil[__reducers__].get(action.type);
     let t = r ? r(state, action) : state;
@@ -23,33 +16,32 @@ function __contort__(state, sil, action){
 
     let c = sil[__children__];
 
-    t = Object.keys(t).reduce((a, k) => {
+    t = members(t).reduce((a, k) => {
 
         let temp = a;
-        let child = c ? c.get(k): undefined;
-        let fragment = child ? __contort__(temp[k], child, action) : temp[k];
+        let child = c ? get(c, k) : undefined;
+        let fragment = child ? __contort__(get(temp, k), child, action) : get(temp, k);
         
-        if(fragment != temp[k]){
-            if(temp === t){
-                temp = t instanceof Array ? t.map(i => i) : Object.assign({}, t);
-            }
-            temp[k] = fragment;
+        if(fragment !== get(temp, k)){
+            if(temp === t){ temp = clone(t); }
+            set(temp, k, fragment);
         }
 
         return temp;
     }, t);
 
-    Object.keys(sil[__state__]).forEach(k => {
-        if(!t.hasOwnProperty(k)){
-            if(t instanceof Array){
-                while (t.length < sil[__children__].length) sil[__children__].pop(); 
-            } else if(t instanceof Object){
-                sil[__children__].delete(k);
+    // TODO: needs lots of work to be container compliant and
+    // TODO: preserve accurate __path__ trails
+    members(sil[__state__]).forEach(m => {
+        if(!has(t, m)){
+            // TODO: is this considered good practice with a container?
+            while(has(sil[__children__], m)){
+                cut(sil[__children__], m);
             }
         }
     });
 
-    if(t != sil[__state__]){
+    if(t !== sil[__state__]){
         sil[__push__]({ done: false, value: t });
     }
 
@@ -58,21 +50,22 @@ function __contort__(state, sil, action){
 
 // an optic wrapping the standard pluck optic to
 // activate silhouette streams on change detection
+// TODO: I should probably pass state through? rework contort to see
 export function traverse(member){
-    return optic(({ sil, action }, next) => {
+    return function* traverse({ sil, action }){
         let state = sil.state;
-        let fragment = next({ 
+        let fragment = yield { 
             sil: sil.select(member),
-            state: state[member],
+            state: get(state, member),
             action,
-        });
-        if(state[member] !== fragment){
+        };
+        if(get(state, member) !== fragment){
             state = clone(state);
-            state[member] = fragment;
+            set(state, member, fragment);
             sil[__push__]({ value: state, done: false });
         }
         return state;
-    });
+    };
 }
 
 
@@ -85,17 +78,17 @@ function __assert__(state, sil, val){
         sil[__push__]({ value: val, done: false });
         return val;
     } else {
-        let ret = Object.keys(val).reduce((a, k) => {
+        let ret = members(val).reduce((a, k) => {
             let t = a;
-            if(!t.hasOwnProperty(k)){
+            if(!has(t, k)){
                 if(t === sil[__state__]){
                     t = clone(t);
                 }
                 let c = sil.select(k);
-                t[k] = __assert__(undefined, c, val[k]);
+                set(t, k, __assert__(undefined, c, val[k]));
             }
             return t;
-        }, state);
+        }, state); 
 
         if(ret !== state){
             sil[__push__]({ done: false, value: ret });
@@ -108,19 +101,17 @@ function __assert__(state, sil, val){
 
 export let erase = member => ({ state, sil }) => __erase__(state, sil, member);
 function __erase__(state, sil, member){
-    if(state.hasOwnProperty(member)){
+    if(has(state, member)){
         let t =  clone(state);
-        if(state instanceof Array){
-            t[member] = undefined;
-        } else if(state instanceof Object){
-            delete t[member];
-        }
+        cut(t, member);
         sil[__push__]({ value: t, done: false });
-        let c = sil[__children__].get(member);
-        if(c){
-            c[__push__]({ done: true });
-        }
-        sil[__children__].delete(member);
+        let c = get(sil[__children__], member);
+        if(c){ c[__push__]({ done: true }); }
+        cut(sil[__children__], member);
+        // TODO: FIX PATH PROBLEMS
+        members(sil[__children__]).forEach(m => {
+            get(sil[__children__], m)[__path__][sil[__path__].length] = m;
+        });
         return t;
     } else {
         return state;
