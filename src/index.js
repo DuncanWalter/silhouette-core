@@ -1,21 +1,13 @@
-import { compose, view, lens, Container } from 'vitrarius'
-import { __DEFINE__, __REMOVE__, __path__, __reducers__, __push__, __store__, __root__, __create__, __state__, __children__ } from './symbols'
+import { Container } from 'vitrarius'
+import { __reducers__, __push__, __store__, __root__, __create__, __state__, __children__, __value__ } from './symbols'
 import { reducer } from './reducer'
 
-import * as __symbols__ from './symbols'
-export let symbols = __symbols__;
+import freezePlugin from './plugins/freeze'
+import thunkPlugin from './plugins/thunk'
+export { freezePlugin }
+export { thunkPlugin }
 
 let { get, set, clone, has, cut, members } = Container;
-
-// TODO get rid of __path__ altogether? is great for debugging, but technically lies after array shifts... might need to keep
-// TODO preserve path integrity when using array sils...
-
-
-// used only to filter out useless dispatches on define calls
-function diff(pat, trg){
-    if(!(pat instanceof Object || pat instanceof Array)){ return trg !== undefined }
-    return members(pat).reduce((a, k) => a && get(trg, k) && diff(get(pat, k), get(trg, k)), trg !== undefined);
-}
 
 function syncQueue(){
     let active = false;
@@ -39,22 +31,51 @@ function syncQueue(){
     }
 }
 
+function deepMap(){
+    this.map = new Map();
+}
+
+deepMap.prototype = {
+    set(...path/*/, value/*/){
+        let value = path.pop();
+        path.reduce((a, p) => {
+            if(!a.has(p)){
+                a.set(p, new Map());
+            }
+            return a.get(p);
+        }, this.map).set(__value__, value);
+    },
+    get(...path){
+        let a = path.reduce((a, p) => {
+            a.m = a.m ? a.m.get(p) : undefined;
+            a.v = a.m ? a.m.get(__value__) || a.v : a.v;
+            return a;
+        }, { m: this.map, v: undefined });
+        return a.v;
+    },
+}
+
 function defineSilhouette(){
 
     let actionQueue = syncQueue();
 
     let trap = {
         get(trg, mem){
-            let h = trg[__children__] && has(trg[__children__], mem);
+            let c = trg[__children__];
+            let h = c && has(trg[__children__], mem);
             let i = mem in trg;
-            return (i && !h) ? trg[mem] : trg.select(mem);
+            switch(true){
+                case (i && !h): return trg[mem];
+                case (c && !h): return trg[__create__](mem);
+                case (h): return get(c, mem);
+                default: throw new Error('Cannot get child nodes of an empty Silhouette.');
+            }
         },
     };
 
-    function Silhouette(initial, ...path){
+    function Silhouette(initial){
         let trg = Object.create(Silhouette.prototype);
-        trg[__path__] = path,
-        trg[__reducers__] = new Map(),
+        trg[__reducers__] = new deepMap(),
         trg[__children__] = undefined,
         trg[__push__]({ value: initial, done: false });
         return new Proxy(trg, trap);
@@ -64,45 +85,23 @@ function defineSilhouette(){
         [__create__](member){
             let c = this[__children__];
             if(!has(c, member)){
-                set(c, member, new Silhouette(get(this[__state__], member), ...this[__path__], member));
+                set(c, member, new Silhouette(get(this[__state__], member)));
             }
             return get(c, member);
         },
-        define(val, ...path){
-            // to keep logs clean and better support redux devtools,
-            // dispatches are filtered here.
-            if(!view(compose(...path.map(k => o => o[k]), diff.bind(null, val)), this.state)){
-                // TODO make it as soft / non intrusive as possible
-                actionQueue.enqueue({ 
-                    type: '__DEFINE__',
-                    [__DEFINE__]: true, 
-                    val: val,
-                    path: [ ...this[__path__], ...path ],
-                });
-                actionQueue.forEach(this[__store__].dispatch);
-            }
-        },
-        remove(...path){ // Escape Hatch...
-            actionQueue.enqueue({ 
-                type: '__REMOVE__',
-                [__REMOVE__]: true,
-                path: [ ...this[__path__], ...path ],
-            });
+        bind(type, fun){
+            actionQueue.enqueue({ fun, type, [__root__]: this });
             actionQueue.forEach(this[__store__].dispatch);
         },
-        dispatch(type, payload){
-            actionQueue.enqueue(Object.assign({ type }, payload));
+        dispatch(...typePath/*/, payload/*/){
+            let payload = typePath.pop();
+            let type = typePath.length <= 1 ? typePath[0] : JSON.stringify(typePath);
+            actionQueue.enqueue(Object.assign({ typePath, type }, payload));
             actionQueue.forEach(this[__store__].dispatch);
         },
-        extend(type, reducer, compose = false){
-            this[__reducers__].set(type, reducer);
-        },
-        select(...path){
-            // TODO make errors friendly for devs
-            return path.reduce((a, p) => {
-                let c = a[__children__];
-                return get(c, p) || a[__create__](p);            
-            }, this);
+        extend(...typePath/*/, reducer/*/){
+            let reducer = typePath.pop();
+            this[__reducers__].set(...typePath, reducer);
         },
         [__push__]({ value, done }){
             if(done){
@@ -110,17 +109,12 @@ function defineSilhouette(){
                 this[__state__] = undefined;
             } else {
                 this[__state__] = value;
-                if(this[__children__] === undefined && this[__state__] !== undefined){
-                    this[__children__] = Container.create(this.state);
+                if(value === undefined){
+                    this[__children__] = undefined;
+                } else if(this[__children__] === undefined){
+                    this[__children__] = Container.create(value);
                 }
             }
-        },
-        // TODO: Should this accessor even exist?
-        get state(){
-            return this[__state__];
-        },
-        set state(v){
-            throw new Error('State cannot be directly set or mutated.');
         },
     };
 
@@ -151,7 +145,7 @@ export function create(...plugins){
     let namespace = {
         Silhouette,
         prototype: Silhouette.prototype,
-        reducer: reducer.bind(Silhouette),
+        reducer: reducer.bind(Silhouette), // TODO: freeze extension should go right here
         createStore(reducer){
             let state = {};
             return {

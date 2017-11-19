@@ -30,7 +30,7 @@
     "shelljs": "^0.7.8"
   },
   "dependencies": {
-    "vitrarius": "^1.3.3"
+    "vitrarius": "^1.3.4"
   },
   "repository": "https://github.com/DuncanWalter/silhouette.git",
   "publishConfig": {
