@@ -6,37 +6,54 @@
 ### **Handshakes & Introductions**
 -----------------------
 
-Redux and similar libraries are great at managing complex state. I'm a fan of the philosophical clarity and purity they represent. However, they are a bit picky about architecture. My redux store has more opinions than I do on how my projects should be structured. As a JavaScripter, I would like to be king of my code palace(s), so this is a nagging issue. In an attempt to either solve or justify the problem, I created Silhouette: an experimental façade over the store pattern. Under the hood, Silhouette is powered by a store like redux, so you can use redux enhancers and middleware as usual. On the surface, Silhouette exposes a higher level API than default redux. The intent is to make the state atom pattern more approachable, productive, and fun. There is, by necessity, a tradeoff in values between Redux and Silhouette. Redux enforces static definitions and machinery. Silhouette doesn't. This has consequences from all over the D&D alignment chart.
+`silhouette-core` is an experimental state container designed to further decouple states and views. Silhouette gets its name from how it behaves as state changes. The root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances. These instances in turn act as stores for their corresponding slices of state. A Silhouette store can also be thought of as a façade over a Redux-style store. As compared to raw `redux`, `silhouette-core` exposes a higher level API. Both libraries support plugins/middleware equally. `silhouette-core` is lightweight by most measures, but still heavier than `redux`. Stylistically, the key distinction between the two is that `redux` enforces static machinery while `silhouette-core` can adjust behaviors. This is terrifying, and has consequences from all over the D&D alignment chart. However, it _appears_ that these adjustments can be canonically handled by middleware for view libraries like `react` or `vue`; this is a primary concern for developing `silhouette-core` further.
 
-Silhouette gets its name from how it behaves as state changes. The root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances (all connected to the same redux store). Each silhouette instance inherits four functions by default:
+As mentioned earlier, Silhouette instances each manage a slice of state. Silhouettes serve as an execution context to preserve traceability and time travelling abilities. In other words, a Silhouette is a [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)). Thanks to this structure, Silhouette fully supports tools like `redux-dev-tools`. They also lazily take on the shape of their slice. Thus, Silhouettes can be sliced using the standard dot and bracket syntaxes for getting object properties (though logged silhouettes won't appear to have said properties). Because they mimic data, Silhouettes are inherently more type-sensitive than standard stores. In order to remain flexible, silhouette is `container-protocol` compliant. `container-protocol` takes inspiration from the [iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols) to define some basic data manipulations. That said, I haven't published `container-protocol` yet, so it is currently a hidden feature. Lastly, It may be possible to add static type definitions to Silhouette, but I haven't made this a priority thus far.
+
+The API for `silhouette-core` is nice and small. It is one module exporting one core function: `create`. This creates a root Silhouette store. Also, each Silhouette instance inherits only three functions by default:
 
 ``` javascript
-// types for clarity
-type state = mixed;
-type type = string | number | symbol;
-type action = { type: type } & mixed;
-type reducer = (state, action): state;
-type path = Array< string | number >;
+// Dispatches actions to the store.
+// Notice that multiple 'type' arguments
+// can be passed; this can replace
+// action meta data like IDs.
+dispatch: (...type: [any], payload: Function): void
 
-// dispatches actions to the store
-1) dispatch: (type, payload): void  
+// Mounts a reducer on the state tree.
+// Can be used by view components and
+// dynamically loaded modules to define
+// behaviors.
+extend: (...type: [any], reducer: Function): void
 
-// mounts a reducer to the state tree
-2) extend: (type, reducer): void    
-
-// asserts the 'shape' of a given silhouette
-3) define: (state, ...path): void   
-
-// an escape hatch that clears data from state
-4) remove: (...path): void 
+// Performs a monadic bind on the Silhouette.
+// This is a backdoor for applying dirty 
+// changes to state while preserving
+// as much traceability as possible.
+bind: (intent: string, operation: Function): void
 ```
-
-Using middleware, silhouettes are designed to naturally support reactive programming, so I'd expect a fifth method defined via plugin in usage.
+These four functions encompass all the core functionality of the library. However, Silhouette is designed to naturally support reactive programming, so in practice I'd expect a fifth method defined using a plugin.
 
 ``` javascript
 // create a stream reacting to changes in state
-5) asObservable: (): Observable     
+asObservable: (): Observable     
 ```
+
+
+### **Ecosystem**
+_________________
+
+Plugins are a first class citizen in Silhouette. Everything from the Silhouette prototype to the data store's functions can be extended using the middleware pattern derived [here](https://redux.js.org/docs/advanced/Middleware.html). So far, here are the plugins made for Silhouette that I am aware of:
+
+- __`rxjsPlugin`__: the RXJS plugin is defined in its own package, `silhouette-plugin-rxjs`. It adds the ability to view the changing state behind a Silhouette as an observable stream (technically a behavior subject). The RXJS plugin takes advantage of reactive hooks in Silhouette to automatically handle stream subscriptions and schedule pushes.
+
+- __`reduxPlugin`__: The Redux plugin is defined in its own package, `silhouette-plugin-redux`. It allows redux middleware and stores to be embedded into Silhouettes. Silhouette fully supports `redux-dev-tools`, `redux-logger`, etc. Additionally, existing redux stores can be integrated into Silhouettes using an alternate plugin found in the same middleware.
+
+- __`freezePlugin`__: The freeze plugin is exported from `silhouette-core`. It disallows developers from mutating states and actions inappropriately.
+
+- __`thunkPlugin`__: The thunk plugin is exported from `silhouette-core`. It performs the same tasks as redux-thunk. I hope to add generator-based asynchronous scheduling soon.
+
+Currently, I'm also working on `vue` and `react` plugins to seamlessly integrate Silhouette stores. Between `silhouette-core`, the packages above, and `silhouette` (the quick-start package), there are probably more plugins than people in the Silhouette community.
+
 
 ### **Example Code**
 --------------------
@@ -53,53 +70,58 @@ console.log(sil);
 // > S { }
 ```
 
-And here is the obligatory counter example:
+For demonstration, here is the obligatory counter:
 
 ``` javascript
-let step = 1;
+// The easiest way to add initial state
+// without using middleware is via a bind
+sil.bind('Initial State', __ => { value: 0, step: 1 });
 
-// easiest way to mold initial state
-sil.define({ value: 0, step });
-
-// silhouette mimics the shape of state actively
+// Silhouettes lazily mimic the shape of
+// the state contained within, so logging
+// will not reflect the current state.
 console.log(sil); 
-// > S { value: S { }, step: S { } }
+// > S { }
 
-// update step using sil as observable
-sil.step.observe().subscribe(v => step = v);
+// We track step as an observable
+const step = sil.step.asObservable();
 
-// reducers and actions
-sil.select('value').extend('incr', (value, action) => value + step);
-sil.select('value').extend('decr', (value, action) => value - step);
-sil.select('step').extend('FASTER!', (step, action) => step + 1);
+sil.value.extend('incr', (value, action) => value + step.getValue());
+sil.value.extend('decr', (value, action) => value - step.getValue());
+sil.step.extend('FASTER!', (step, action) => step + 1);
 
-// so we can see state at each update
-sil.observe().subscribe(v => console.log(v)); // > { value: 0, step: 1 }
+// We'll log state whenever
+// it changes for explicitness.
+sil.asObservable().subscribe(v => console.log(v)); 
+// > { value: 0, step: 1 }
 
 sil.dispatch('incr', {});     // > { value:  1, step: 1 }
 sil.dispatch('FASTER!', {});  // > { value:  1, step: 2 }
 sil.dispatch('decr', {});     // > { value: -1, step: 2 }
 
 // dispatches work from any silhouette
-sil.select('step').dispatch('incr', {}); // > { value:  1, step: 2 }
+sil.step.dispatch('incr', {}); // > { value:  1, step: 2 }
 ```
 
 
 
 ### **Contributions & Feedback**
-----------------------------------
+--------------------------------
 
-Pull requests are welcome! I will advise waiting until the core features stabilize before making contributions; it's changing frequently at the moment.
+Questions and comments are more than welcome; feedback is how the library gets better.
 
-Questions and comments are always welcome.
+If you want to make plugins for Silhouette, go for it! The more the merrier. 
+
+I advise waiting to contribute to `silhouette-core` until the features stabilize; it's still changing frequently.
 
 Special thanks to Mark Erikson for critiquing and inspiring aspects of Silhouette.
-
 
 
 ### **Roadmap**
 ---------------
 
 My current focus is on... 
-1. getting example applications for Silhouette online
-2. adding generator based asynchronous action scheduling
+1. Creating `vue` middleware that integrates with Silhouette
+2. Getting an example application for Silhouette online
+3. Adding generator-based asynchronous action scheduling
+4. Publishing documentation for `container-protocol`

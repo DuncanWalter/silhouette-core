@@ -72,7 +72,10 @@ tap.test('Baseline Tests', t => {
     t.false(s.a[2][__state__]);
 
     
+    
+    console.log(s);
 
+    
 
     t.end();
 });
@@ -99,5 +102,5 @@ tap.test('Freezer Tests', t => {
     });
 
     t.end();
-    
+
 });

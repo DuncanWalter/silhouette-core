@@ -1,5 +1,5 @@
 import { Container } from 'vitrarius'
-import { __reducers__, __push__, __store__, __root__, __create__, __state__, __children__, __value__ } from './symbols'
+import { __reducers__, __push__, __store__, __root__, __create__, __state__, __children__, __value__, __logger__ } from './symbols'
 import { reducer } from './reducer'
 
 import freezePlugin from './plugins/freeze'
@@ -61,6 +61,14 @@ function defineSilhouette(){
 
     let trap = {
         get(trg, mem){
+            // console.log(mem);
+            if(typeof mem === 'symbol'){
+                if(mem.toString() === 'Symbol(util.inspect.custom)'){
+                    return () => `Silhouette { ${trg[__state__]} }`;
+                } else if(mem === Symbol.toStringTag){
+                    return 'Silhouette'
+                }
+            }
             let c = trg[__children__];
             let h = c && has(trg[__children__], mem);
             let i = mem in trg;
@@ -68,41 +76,42 @@ function defineSilhouette(){
                 case (i && !h): return trg[mem];
                 case (c && !h): return trg[__create__](mem);
                 case (h): return get(c, mem);
-                default: throw new Error('Cannot get child nodes of an empty Silhouette.');
+                default: 
+                    console.log(mem);
+                    throw new Error(`Cannot get child node ${mem} of an empty Silhouette.`);
             }
         },
     };
 
-    function Silhouette(initial){
-        let trg = Object.create(Silhouette.prototype);
-        trg[__reducers__] = new deepMap(),
-        trg[__children__] = undefined,
-        trg[__push__]({ value: initial, done: false });
-        return new Proxy(trg, trap);
-    };
-
-    Silhouette.prototype = {
+    class Silhouette{
+        constructor(initial){
+            let trg = Object.create(Silhouette.prototype);
+            trg[__reducers__] = new deepMap(),
+            trg[__children__] = undefined,
+            trg[__push__]({ value: initial, done: false });
+            return new Proxy(trg, trap);
+        }
         [__create__](member){
             let c = this[__children__];
             if(!has(c, member)){
                 set(c, member, new Silhouette(get(this[__state__], member)));
             }
             return get(c, member);
-        },
+        }
         bind(type, fun){
             actionQueue.enqueue({ fun, type, [__root__]: this });
             actionQueue.forEach(this[__store__].dispatch);
-        },
+        }
         dispatch(...typePath/*/, payload/*/){
             let payload = typePath.pop();
             let type = typePath.length <= 1 ? typePath[0] : JSON.stringify(typePath);
             actionQueue.enqueue(Object.assign({ typePath, type }, payload));
             actionQueue.forEach(this[__store__].dispatch);
-        },
+        }
         extend(...typePath/*/, reducer/*/){
             let reducer = typePath.pop();
             this[__reducers__].set(...typePath, reducer);
-        },
+        }
         [__push__]({ value, done }){
             if(done){
                 this[__children__] = undefined;
@@ -115,7 +124,8 @@ function defineSilhouette(){
                     this[__children__] = Container.create(value);
                 }
             }
-        },
+        }
+        
     };
 
     return Silhouette;
