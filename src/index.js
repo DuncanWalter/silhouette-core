@@ -7,7 +7,8 @@ import thunkPlugin from './plugins/thunk'
 export { freezePlugin }
 export { thunkPlugin }
 
-export * from './symbols'
+import * as symbols from './symbols'
+export { symbols }
 
 let { get, set, clone, has, cut, members } = Container;
 

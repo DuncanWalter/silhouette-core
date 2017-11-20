@@ -2,6 +2,7 @@ import tap from 'tap'
 import { create } from './index'
 import { __state__ } from './symbols'
 
+import {symbols} from './index'
 
 import freezePlugin from './plugins/freeze'
 import thunkPlugin from './plugins/thunk'
@@ -29,7 +30,7 @@ tap.test('Baseline Tests', t => {
     t.same(sil.b.c[__state__], undefined); // 5
     t.true(sil.b.d[__state__]); // 6
     sil.b.c.bind('testing add', s => [10, 20, 30]);
-    t.deepEqual(sil.b.c[__state__], [10, 20, 30]); // 7
+    t.deepEqual(sil.b.c[symbols.__state__], [10, 20, 30]); // 7
     let incra = 0;
     let incrb = 0;
 
