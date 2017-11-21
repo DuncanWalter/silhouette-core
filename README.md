@@ -6,9 +6,9 @@
 ### **Handshakes & Introductions**
 -----------------------
 
-`silhouette-core` is an experimental state container designed to further decouple states and views. Silhouette gets its name from how it behaves as state changes. The root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances. These instances in turn act as stores for their corresponding slices of state. A Silhouette store can also be thought of as a façade over a Redux-style store. As compared to raw `redux`, `silhouette-core` exposes a higher level API. Both libraries support plugins/middleware equally. `silhouette-core` is lightweight by most measures, but still heavier than `redux`. Stylistically, the key distinction between the two is that `redux` enforces static machinery while `silhouette-core` can adjust behaviors. This is terrifying, and has consequences from all over the D&D alignment chart. However, it _appears_ that these adjustments can be canonically handled by middleware for view libraries like `react` or `vue`; this is a primary concern for developing `silhouette-core` further.
+`silhouette-core` is an experimental state container designed to further decouple states and views. Silhouette gets its name from how it behaves as state changes. The root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances. These instances in turn act as stores for their corresponding slices of state. A Silhouette store can also be thought of as a façade over a Redux-style store. As compared to raw `redux`, `silhouette-core` exposes a higher level API. However, both libraries support plugins/middleware equally. `silhouette-core` is lightweight by most measures, but still heavier than `redux`. Stylistically, the key distinction between the two is that `redux` enforces static machinery while `silhouette-core` can adjust behaviors. This is terrifying, and has consequences from all over the D&D alignment chart. However, it _appears_ that these adjustments can be canonically handled by middleware for view libraries like `react` or `vue`; demonstrating this is a primary concern for developing `silhouette-core` further.
 
-As mentioned earlier, Silhouette instances each manage a slice of state. Silhouettes serve as an execution context to preserve traceability and time travelling abilities. In other words, a Silhouette is a [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)). Thanks to this structure, Silhouette fully supports tools like `redux-dev-tools`. They also lazily take on the shape of their slice. Thus, Silhouettes can be sliced using the standard dot and bracket syntaxes for getting object properties (though logged silhouettes won't appear to have said properties). Because they mimic data, Silhouettes are inherently more type-sensitive than standard stores. In order to remain flexible, silhouette is `container-protocol` compliant. `container-protocol` takes inspiration from the [iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols) to define some basic data manipulations. That said, I haven't published `container-protocol` yet, so it is currently a hidden feature. Lastly, It may be possible to add static type definitions to Silhouette, but I haven't made this a priority thus far.
+As mentioned earlier, Silhouette instances each manage a slice of state. Silhouettes serve as an execution context to preserve traceability and time travelling abilities. In other words, a Silhouette is nearly a [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)). Thanks to this structure, Silhouette fully supports tools like `redux-dev-tools`. They also lazily take on the shape of their slice. Thus, Silhouettes can be sliced using the standard dot and bracket syntaxes for getting object properties. Because they mimic data, Silhouettes are inherently more type-sensitive than standard stores. In order to remain flexible, silhouette is `container-protocol` compliant. `container-protocol` takes inspiration from the [iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols) to define some basic data manipulations. That said, I haven't published `container-protocol` yet, so it is currently a hidden feature.
 
 The API for `silhouette-core` is nice and small. It is one module exporting one core function: `create`. This creates a root Silhouette store. Also, each Silhouette instance inherits only three functions by default:
 
@@ -67,27 +67,30 @@ import rxjsPlugin from 'silhouette-plugin-rxjs'
 const sil = create( rxjsPlugin() );
 
 console.log(sil); 
-// > S { }
+// > S {[object Object]}
 ```
 
 For demonstration, here is the obligatory counter:
 
 ``` javascript
 // The easiest way to add initial state
-// without using middleware is via a bind
-sil.bind('Initial State', __ => { value: 0, step: 1 });
+// without using plugins is via a bind.
+sil.bind('Initial State', state => { value: 0, step: 1 });
 
 // Silhouettes lazily mimic the shape of
-// the state contained within, so logging
+// state contained within and expose no
+// direct accessors to that state, so logging
 // will not reflect the current state.
 console.log(sil); 
-// > S { }
+// > S {[object Object]}
 
-// We track step as an observable
+// Instead, we track slices of state
+// as observables. Here, we create 
+// a stream of step values.
 const step = sil.step.asObservable();
 
-sil.value.extend('incr', (value, action) => value + step.getValue());
-sil.value.extend('decr', (value, action) => value - step.getValue());
+sil.value.extend('INCR', (value, action) => value + step.getValue());
+sil.value.extend('DECR', (value, action) => value - step.getValue());
 sil.step.extend('FASTER!', (step, action) => step + 1);
 
 // We'll log state whenever
@@ -95,12 +98,27 @@ sil.step.extend('FASTER!', (step, action) => step + 1);
 sil.asObservable().subscribe(v => console.log(v)); 
 // > { value: 0, step: 1 }
 
-sil.dispatch('incr', {});     // > { value:  1, step: 1 }
-sil.dispatch('FASTER!', {});  // > { value:  1, step: 2 }
-sil.dispatch('decr', {});     // > { value: -1, step: 2 }
+sil.dispatch('INCR', {});    // > { value:  1, step: 1 }
+sil.dispatch('FASTER!', {}); // > { value:  1, step: 2 }
+sil.dispatch('DECR', {});    // > { value: -1, step: 2 }
 
 // dispatches work from any silhouette
-sil.step.dispatch('incr', {}); // > { value:  1, step: 2 }
+sil.step.dispatch('INCR', {}); // > { value:  1, step: 2 }
+
+// Action and reducer types 
+// are variadic in Silhouette. 
+// This lets us pass metadata 
+// and make contrived examples.
+sil.step.extend('RESET', 'STEP', (step, action) => 1));
+
+// In this contrived example,
+// our reducer is only triggered
+// when the action types match
+// (or overstep) the whole type list
+sil.dispatch('RESET', {});
+sil.dispatch('RESET', 'STEP', {}); // > { value: 2, step: 1 }
+sil.dispatch('INCR', 'EXTRA', {}); // > { value: 3, step: 1 }
+
 ```
 
 
@@ -112,7 +130,7 @@ Questions and comments are more than welcome; feedback is how the library gets b
 
 If you want to make plugins for Silhouette, go for it! The more the merrier. 
 
-I advise waiting to contribute to `silhouette-core` until the features stabilize; it's still changing frequently.
+I advise waiting to contribute to `silhouette-core` until the features stabilize; it's still changing frequently right now.
 
 Special thanks to Mark Erikson for critiquing and inspiring aspects of Silhouette.
 

@@ -16,6 +16,9 @@ tap.test('Baseline Tests', t => {
                 next.call(this, ...args); // TODO make the plugin application handle contextualization
                 binds++;
             },
+            get state(){
+                return this[__state__];
+            },
         }
     });
     t.true(sil); // 1
@@ -27,14 +30,14 @@ tap.test('Baseline Tests', t => {
     t.true(sil.b.c); // 3
     sil.b.bind('testing remove', s => ({ d: 4 }));
     t.same(binds, 2); // 4
-    t.same(sil.b.c[__state__], undefined); // 5
-    t.true(sil.b.d[__state__]); // 6
+    t.same(sil.b.c.state, undefined); // 5
+    t.true(sil.b.d.state); // 6
     sil.b.c.bind('testing add', s => [10, 20, 30]);
     t.deepEqual(sil.b.c[symbols.__state__], [10, 20, 30]); // 7
     let incra = 0;
     let incrb = 0;
 
-    t.equal(sil.b[__state__], sil[__state__].b); // 8
+    t.equal(sil.b.state, sil.state.b); // 8
 
     sil.b.extend('whatever', (s, a) => {
         incrb++;

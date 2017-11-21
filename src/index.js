@@ -139,7 +139,14 @@ function defineSilhouette(){
 // to apply plugins cleanly
 function applyPlugin(base, plugin){
     Reflect.ownKeys(plugin).forEach(key => {
-        if(plugin[key] instanceof Function){
+        let prop = Object.getOwnPropertyDescriptor(plugin, key);
+        if(prop.value === undefined){
+            if(!Object.getOwnPropertyDescriptor(base, key)){
+                Object.defineProperty(base, key, prop);
+            } else {
+                throw new Error('Plugins cannot overwrite existing properties with getters or setters.');
+            }
+        } else if(prop.value instanceof Function){
             base[key] = plugin[key](base[key]);
         } else if(plugin[key] instanceof Object){
             base[key] = applyPlugin(base[key], plugin[key]);
