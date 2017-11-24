@@ -1,6 +1,22 @@
 
 const GeneratorFunction = (function*(){}).constructor;
 
+
+
+function async(gen, val){
+    let { value, done } = gen.next(val);
+
+    if(done){
+        return;
+    }
+
+    if(value instanceof Promise){
+        value.resolve(v => async(gen, v));
+    }
+}
+
+
+
 // production middleware for scheduling
 // dispatches asynchronously using standard
 // thunks or generator based asynchronous
@@ -14,7 +30,7 @@ export default function thunkPlugin(){
                     next.call(this, ...args, request);
                 };  
                 case request instanceof GeneratorFunction:{
-                    throw new Error('Generator scheduling not yet implemented');
+                    async(request.call(this, next.bind(this), ...args), this);
                 };
                 case request instanceof Function:{
                     request(next.bind(this, ...args));

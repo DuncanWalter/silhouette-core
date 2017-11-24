@@ -1,5 +1,5 @@
 import { Container } from 'vitrarius'
-import { __reducers__, __push__, __store__, __root__, __create__, __state__, __children__, __value__, __logger__ } from './symbols'
+import { __reducers__, __push__, __store__, __root__, __create__, __state__, __children__, __value__, __logger__, __id__ } from './symbols'
 import { reducer } from './reducer'
 
 import freezePlugin from './plugins/freeze'
@@ -80,15 +80,19 @@ function defineSilhouette(){
                 case (c && !h): return trg[__create__](mem);
                 case (h): return get(c, mem);
                 default: 
-                    console.log(mem);
+                    console.log(mem); // TODO: just return undefined?
                     throw new Error(`Cannot get child node ${mem} of an empty Silhouette.`);
             }
         },
     };
 
-    class Silhouette{
+    let boundReducer = (fun, id) => sil => sil[__id__] == id ? fun : undefined;
+    let foundReducer = typePath  => sil => sil[__reducers__].get(...typePath); 
+
+    class Silhouette {
         constructor(initial){
             let trg = Object.create(Silhouette.prototype);
+            trg[__id__] = Symbol('self');
             trg[__reducers__] = new deepMap(),
             trg[__children__] = undefined,
             trg[__push__]({ value: initial, done: false });
@@ -101,14 +105,18 @@ function defineSilhouette(){
             }
             return get(c, member);
         }
-        bind(type, fun){
-            actionQueue.enqueue({ fun, type, [__root__]: this });
+        bind(intent, fun){
+            actionQueue.enqueue({ 
+                type: intent, 
+                [__reducers__]: boundReducer(fun, this[__id__]),
+            });
             actionQueue.forEach(this[__store__].dispatch);
         }
         dispatch(...typePath/*/, payload/*/){
-            let payload = typePath.pop();
-            let type = typePath.length <= 1 ? typePath[0] : JSON.stringify(typePath);
-            actionQueue.enqueue(Object.assign({ typePath, type }, payload));
+            actionQueue.enqueue(Object.assign(typePath.pop(), { 
+                type: JSON.stringify(typePath),
+                [__reducers__]: foundReducer(typePath),
+            }));
             actionQueue.forEach(this[__store__].dispatch);
         }
         extend(...typePath/*/, reducer/*/){
@@ -128,7 +136,6 @@ function defineSilhouette(){
                 }
             }
         }
-        
     };
 
     return Silhouette;
@@ -165,7 +172,7 @@ export function create(...plugins){
     let namespace = {
         Silhouette,
         prototype: Silhouette.prototype,
-        reducer: reducer.bind(Silhouette), // TODO: freeze extension should go right here
+        reducer: reducer.bind(Silhouette),
         createStore(reducer){
             let state = {};
             return {

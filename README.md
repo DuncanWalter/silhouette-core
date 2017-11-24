@@ -1,16 +1,22 @@
-[![Build Status](https://travis-ci.org/DuncanWalter/silhouette.svg?branch=master)](https://travis-ci.org/DuncanWalter/silhouette)
-
+[![Build Status](https://travis-ci.org/DuncanWalter/silhouette-core.svg?branch=master)](https://travis-ci.org/DuncanWalter/silhouette-core)
 
 # **Silhouette Core**
 
 ### **Handshakes & Introductions**
 -----------------------
 
-`silhouette-core` is an experimental state container designed to further decouple states and views. Silhouette gets its name from how it behaves as state changes. The root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances. These instances in turn act as stores for their corresponding slices of state. A Silhouette store can also be thought of as a façade over a Redux-style store. As compared to raw `redux`, `silhouette-core` exposes a higher level API. However, both libraries support plugins/middleware equally. `silhouette-core` is lightweight by most measures, but still heavier than `redux`. Stylistically, the key distinction between the two is that `redux` enforces static machinery while `silhouette-core` can adjust behaviors. This is terrifying, and has consequences from all over the D&D alignment chart. However, it _appears_ that these adjustments can be canonically handled by middleware for view libraries like `react` or `vue`; demonstrating this is a primary concern for developing `silhouette-core` further.
+`silhouette-core` is an experimental state container designed to further decouple states and views. Silhouette gets its name from how it behaves as state changes; the root silhouette object will always be the same 'shape' as the state object, though it will be comprized only of other Silhouette instances. These instances in turn act as stores for their corresponding slices of state. A Silhouette store can also be thought of as a façade over a Redux-style store. As compared to raw `redux`, `silhouette-core` exposes a higher level API. However, both libraries support plugins/middleware equally. `silhouette-core` is lightweight by most measures, but still heavier than `redux`. Stylistically, the key distinction between the two is that `redux` enforces static machinery while `silhouette-core` can adjust behaviors. This is terrifying, and has consequences from all over the D&D alignment chart. However, it _appears_ that these adjustments can be canonically handled by middleware for view libraries like `react` or `vue`. Demonstrating this capability is a primary concern for developing `silhouette-core` further.
 
-As mentioned earlier, Silhouette instances each manage a slice of state. Silhouettes serve as an execution context to preserve traceability and time travelling abilities. In other words, a Silhouette is nearly a [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)). Thanks to this structure, Silhouette fully supports tools like `redux-dev-tools`. They also lazily take on the shape of their slice. Thus, Silhouettes can be sliced using the standard dot and bracket syntaxes for getting object properties. Because they mimic data, Silhouettes are inherently more type-sensitive than standard stores. In order to remain flexible, silhouette is `container-protocol` compliant. `container-protocol` takes inspiration from the [iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols) to define some basic data manipulations. That said, I haven't published `container-protocol` yet, so it is currently a hidden feature.
+As mentioned earlier, Silhouette instances each manage a slice of state. Silhouettes serve as an execution context to preserve traceability and time travelling abilities. In other words, a Silhouette is nearly a [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)). Thanks to this structure, Silhouette fully supports tools like `redux-dev-tools`. 
 
-The API for `silhouette-core` is nice and small. It is one module exporting one core function: `create`. This creates a root Silhouette store. Also, each Silhouette instance inherits only three functions by default:
+For performance, Silhouette instances lazily mold to the shape of contained state slices. A helpful side effect of this laziness is that Silhouettes can be sliced using the standard dot and bracket syntaxes for getting object properties. For convenience, Silhouettes containing state which does not yet exist can also be selected this way.
+
+Because they mimic data shapes, Silhouettes are more type-sensitive than standard stores. In order to remain flexible, silhouette is `container-protocol` compliant. `container-protocol` takes inspiration from the [iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols) to define some basic data manipulations. That said, I haven't published `container-protocol` yet, so it is currently a hidden feature.
+
+### **Package API**
+___________
+
+The API for `silhouette-core` is nice and small. It is one module exporting one core function: `create`. This creates a root Silhouette store. Each Silhouette instance inherits only three functions by default:
 
 ``` javascript
 // Dispatches actions to the store.
@@ -46,11 +52,11 @@ Plugins are a first class citizen in Silhouette. Everything from the Silhouette 
 
 - __`rxjsPlugin`__: the RXJS plugin is defined in its own package, `silhouette-plugin-rxjs`. It adds the ability to view the changing state behind a Silhouette as an observable stream (technically a behavior subject). The RXJS plugin takes advantage of reactive hooks in Silhouette to automatically handle stream subscriptions and schedule pushes.
 
-- __`reduxPlugin`__: The Redux plugin is defined in its own package, `silhouette-plugin-redux`. It allows redux middleware and stores to be embedded into Silhouettes. Silhouette fully supports `redux-dev-tools`, `redux-logger`, etc. Additionally, existing redux stores can be integrated into Silhouettes using an alternate plugin found in the same middleware.
+- __`reduxPlugin`__: The Redux plugin is defined in its own package, `silhouette-plugin-redux`. It allows redux middleware and stores to be embedded into Silhouettes. Silhouette fully supports `redux-dev-tools`, `redux-logger`, etc. Additionally, existing redux stores can be integrated into Silhouettes using an alternate plugin found in the same module.
 
 - __`freezePlugin`__: The freeze plugin is exported from `silhouette-core`. It disallows developers from mutating states and actions inappropriately.
 
-- __`thunkPlugin`__: The thunk plugin is exported from `silhouette-core`. It performs the same tasks as redux-thunk. I hope to add generator-based asynchronous scheduling soon.
+- __`thunkPlugin`__: The thunk plugin is exported from `silhouette-core`. It performs the same tasks as redux-thunk. Additionally, the thunk plugin can handle generator functions for sequencing asynchronous actions.
 
 Currently, I'm also working on `vue` and `react` plugins to seamlessly integrate Silhouette stores. Between `silhouette-core`, the packages above, and `silhouette` (the quick-start package), there are probably more plugins than people in the Silhouette community.
 
@@ -80,17 +86,17 @@ sil.bind('Initial State', state => { value: 0, step: 1 });
 // Silhouettes lazily mimic the shape of
 // state contained within and expose no
 // direct accessors to that state, so logging
-// will not reflect the current state.
+// will only reflect the type of internal state.
 console.log(sil); 
 // > S {[object Object]}
 
 // Instead, we track slices of state
 // as observables. Here, we create 
 // a stream of step values.
-const step = sil.step.asObservable();
+const step = sil.step.stream;
 
-sil.value.extend('INCR', (value, action) => value + step.getValue());
-sil.value.extend('DECR', (value, action) => value - step.getValue());
+sil.value.extend('INCR', (value, action) => value + step.value);
+sil.value.extend('DECR', (value, action) => value - step.value);
 sil.step.extend('FASTER!', (step, action) => step + 1);
 
 // We'll log state whenever
@@ -128,9 +134,9 @@ sil.dispatch('INCR', 'EXTRA', {}); // > { value: 3, step: 1 }
 
 Questions and comments are more than welcome; feedback is how the library gets better.
 
-If you want to make plugins for Silhouette, go for it! The more the merrier. 
+If you want to make plugins for Silhouette, go for it! The more the merrier, and the plugin API is stable. You'll probably want to ask [me](https://github.com/DuncanWalter) for help getting started- I'll get back to you as soon as I can.
 
-I advise waiting to contribute to `silhouette-core` until the features stabilize; it's still changing frequently right now.
+I advise waiting to contribute to `silhouette-core` itself until the features stabilize; it's still changing frequently right now.
 
 Special thanks to Mark Erikson for critiquing and inspiring aspects of Silhouette.
 
@@ -141,5 +147,4 @@ Special thanks to Mark Erikson for critiquing and inspiring aspects of Silhouett
 My current focus is on... 
 1. Creating `vue` middleware that integrates with Silhouette
 2. Getting an example application for Silhouette online
-3. Adding generator-based asynchronous action scheduling
 4. Publishing documentation for `container-protocol`

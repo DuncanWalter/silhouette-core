@@ -1,14 +1,12 @@
 import { Container } from 'vitrarius'
-import { __reducers__, __push__, __root__, __state__, __children__ } from './symbols'
+import { __reducers__, __push__, __root__, __state__, __children__, __id__ } from './symbols'
 
 let { get, set, cut, clone, has, members } = Container;
 
 export function* contort(crumb){
     let reducer, { state, sil, action } = crumb;
 
-    // TODO: clean up the reducer acquisition
-    reducer = action.typePath ? sil[__reducers__].get(...action.typePath) : undefined;
-    reducer = action[__root__] === sil ? action.fun : reducer;
+    reducer = action[__reducers__](sil);
     state = reducer ? reducer(state, action) : state;
     
     if(state === undefined && crumb.state !== undefined){
