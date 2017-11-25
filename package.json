@@ -32,7 +32,7 @@
   "dependencies": {
     "vitrarius": "^1.4.0"
   },
-  "repository": "https://github.com/DuncanWalter/silhouette.git",
+  "repository": "https://github.com/DuncanWalter/silhouette-core.git",
   "publishConfig": {
     "access": "public"
   }

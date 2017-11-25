@@ -12,6 +12,9 @@ export { symbols }
 
 let { get, set, clone, has, cut, members } = Container;
 
+// TODO: SAM architecture is formed by forgoing extend and dispatch types and making payloads
+// data proposals. This requires some very minor changes.
+
 function syncQueue(){
     let active = false;
     let next = { };
@@ -53,7 +56,7 @@ deepMap.prototype = {
             a.m = a.m ? a.m.get(p) : undefined;
             a.v = a.m ? a.m.get(__value__) || a.v : a.v;
             return a;
-        }, { m: this.map, v: undefined });
+        }, { m: this.map, v: this.map.get(__value__) });
         return a.v;
     },
 }
@@ -107,14 +110,14 @@ function defineSilhouette(){
         }
         bind(intent, fun){
             actionQueue.enqueue({ 
-                type: intent, 
+                type: intent, // TODO: remove this, as we don't assume redux
                 [__reducers__]: boundReducer(fun, this[__id__]),
             });
             actionQueue.forEach(this[__store__].dispatch);
         }
         dispatch(...typePath/*/, payload/*/){
-            actionQueue.enqueue(Object.assign(typePath.pop(), { 
-                type: JSON.stringify(typePath),
+            actionQueue.enqueue(Object.assign(typePath.pop(), { // TODO: use containers, not assign 
+                type: JSON.stringify(typePath),// TODO: remove this, as we don't assume redux
                 [__reducers__]: foundReducer(typePath),
             }));
             actionQueue.forEach(this[__store__].dispatch);
@@ -194,7 +197,6 @@ export function create(...plugins){
         applyPlugin(namespace, plugin);
     });
 
-    // use the namespace as it stands!
     let store = namespace.createStore(namespace.reducer);
     return namespace.createSil(store);
 

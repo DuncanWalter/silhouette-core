@@ -23,7 +23,7 @@ The API for `silhouette-core` is nice and small. It is one module exporting one 
 // Notice that multiple 'type' arguments
 // can be passed; this can replace
 // action meta data like IDs.
-dispatch: (...type: [any], payload: Function): void
+dispatch: (...type: [any], payload: Object): void
 
 // Mounts a reducer on the state tree.
 // Can be used by view components and
